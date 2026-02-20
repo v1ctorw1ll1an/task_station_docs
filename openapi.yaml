@@ -1,0 +1,105 @@
+openapi: 3.0.0
+paths:
+  /api/v1/health:
+    get:
+      operationId: HealthController_check
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+      - Health
+  /api/v1/auth/login:
+    post:
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      responses:
+        '200':
+          description: JWT retornado com dados do usuário
+        '401':
+          description: Credenciais inválidas
+      summary: Login com email e senha
+      tags:
+      - auth
+  /api/v1/auth/logout:
+    post:
+      operationId: AuthController_logout
+      parameters: []
+      responses:
+        '200':
+          description: Logout realizado
+        '401':
+          description: Token ausente ou inválido
+      security:
+      - bearer: []
+      summary: Logout (stateless — invalida sessão no cliente)
+      tags:
+      - auth
+  /api/v1/auth/reset-password:
+    post:
+      operationId: AuthController_resetPassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordDto'
+      responses:
+        '200':
+          description: Senha redefinida com sucesso
+        '400':
+          description: As senhas não coincidem
+        '401':
+          description: Token ausente ou inválido
+      security:
+      - bearer: []
+      summary: Redefinir senha do usuário autenticado
+      tags:
+      - auth
+info:
+  title: Task Station API
+  description: API de gestão de projetos e tasks
+  version: '1.0'
+  contact: {}
+tags: []
+servers: []
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: admin@taskstation.com
+        password:
+          type: string
+          example: Admin@123456
+          minLength: 6
+      required:
+      - email
+      - password
+    ResetPasswordDto:
+      type: object
+      properties:
+        newPassword:
+          type: string
+          example: NovaS3nh@
+          minLength: 6
+        confirmPassword:
+          type: string
+          example: NovaS3nh@
+      required:
+      - newPassword
+      - confirmPassword
