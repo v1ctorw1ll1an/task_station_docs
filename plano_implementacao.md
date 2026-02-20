@@ -19,7 +19,7 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] Prisma schema completo com todas as tabelas e migration inicial rodando
 - [x] Rota de healthcheck na API (`GET /api/v1/health`) — valida conexão com banco
 - [x] ESLint + Prettier configurados
-- [ ] Next.js configurado com TypeScript e estrutura de pastas base
+- [x] Next.js configurado com TypeScript e estrutura de pastas base
 - [ ] Commit hooks configurados (Husky)
 
 **Entregável:** `docker compose up` sobe banco + api + web sem erros.
@@ -40,11 +40,12 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] Swagger UI em `GET /api/docs` com suporte a Bearer token
 
 ### Frontend
-- [ ] Página de login (`/login`)
-- [ ] Página de redefinição de senha obrigatória (`/first-access`)
-- [ ] Lógica de armazenamento do token (httpOnly cookie ou memory)
-- [ ] Redirecionamento pós-login conforme role do usuário
-- [ ] Botão e fluxo de logout
+- [x] Página de login (`/login`)
+- [x] Página de redefinição de senha obrigatória (`/first-access`)
+- [x] Lógica de armazenamento do token (httpOnly cookie + cookie de sessão do usuário)
+- [x] Redirecionamento pós-login conforme `mustResetPassword` — `/first-access` ou `/dashboard`
+- [x] Proteção do dashboard: redireciona para `/first-access` se `mustResetPassword` ainda for verdadeiro
+- [x] Botão e fluxo de logout
 
 **Entregável:** Superusuário consegue logar, é redirecionado ao painel e consegue sair.
 
@@ -55,14 +56,16 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 > **RFs cobertos:** RF004
 
 ### Backend
-- [ ] Endpoint `POST /auth/forgot-password` — gera token, salva hash, envia email
-- [ ] Endpoint `POST /auth/reset-password/:token` — valida token, redefine senha, marca `used_at`
-- [ ] Integração com serviço de email (Resend, Nodemailer ou similar)
-- [ ] Expiração e uso único do token garantidos no banco
+- [x] Endpoint `POST /auth/forgot-password` — gera token, salva hash, envia email
+- [x] Endpoint `POST /auth/reset-password/:token` — valida token, redefine senha, marca `used_at`
+- [x] Integração com Resend (API key via `RESEND_API_KEY`)
+- [x] Expiração e uso único do token garantidos no banco
 
 ### Frontend
-- [ ] Página "Esqueci minha senha" (`/forgot-password`)
-- [ ] Página de redefinição via link (`/reset-password/:token`)
+- [x] Página "Esqueci minha senha" (`/forgot-password`)
+- [x] Página de redefinição via link (`/reset-password?token=...`)
+- [x] Link "Esqueceu a senha?" na tela de login
+- [x] Confirmação de sucesso na tela de login pós-redefinição
 
 **Entregável:** Fluxo completo de recuperação de senha funcionando via email.
 
