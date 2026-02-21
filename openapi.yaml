@@ -1,18 +1,320 @@
 openapi: 3.0.0
+info:
+  title: Task Station API
+  description: API de gestão de projetos e tasks
+  version: '1.0'
+  contact: {}
+
+servers: []
+
+tags:
+  - name: Health
+  - name: auth
+    description: Autenticação e recuperação de senha
+  - name: superadmin
+    description: Painel do superusuário — acesso restrito
+
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+
+  schemas:
+    # ── Auth ─────────────────────────────────────────────────────────────────
+    LoginDto:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          example: admin@taskstation.com
+        password:
+          type: string
+          minLength: 6
+          example: Admin@123456
+
+    ResetPasswordDto:
+      type: object
+      required: [newPassword, confirmPassword]
+      properties:
+        newPassword:
+          type: string
+          minLength: 6
+          example: NovaS3nh@
+        confirmPassword:
+          type: string
+          example: NovaS3nh@
+
+    ForgotPasswordDto:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          example: usuario@exemplo.com
+
+    ConfirmResetPasswordDto:
+      type: object
+      required: [newPassword, confirmPassword]
+      properties:
+        newPassword:
+          type: string
+          minLength: 6
+          example: NovaS3nh@
+        confirmPassword:
+          type: string
+          example: NovaS3nh@
+
+    # ── Superadmin — Empresas ─────────────────────────────────────────────────
+    CreateCompanyDto:
+      type: object
+      required: [legalName, taxId, adminName, adminEmail]
+      properties:
+        legalName:
+          type: string
+          example: Acme Ltda
+        taxId:
+          type: string
+          description: CNPJ somente números (14 dígitos)
+          example: '12345678000199'
+        adminName:
+          type: string
+          example: João Silva
+        adminEmail:
+          type: string
+          format: email
+          example: joao@acme.com
+
+    UpdateCompanyDto:
+      type: object
+      properties:
+        legalName:
+          type: string
+          example: Acme S.A.
+        taxId:
+          type: string
+          example: '98765432000100'
+
+    CompanyItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        legalName:
+          type: string
+        taxId:
+          type: string
+        isActive:
+          type: boolean
+        createdById:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CompanyDetail:
+      allOf:
+        - $ref: '#/components/schemas/CompanyItem'
+        - type: object
+          properties:
+            createdBy:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                email:
+                  type: string
+            admins:
+              type: array
+              items:
+                type: object
+                properties:
+                  membershipId:
+                    type: string
+                    format: uuid
+                  role:
+                    type: string
+                    enum: [admin, workspace_admin, member]
+                  createdAt:
+                    type: string
+                    format: date-time
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      phone:
+                        type: string
+                        nullable: true
+                      isActive:
+                        type: boolean
+            workspacesCount:
+              type: integer
+            projectsCount:
+              type: integer
+
+    PaginatedCompanies:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanyItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Superadmin — Usuários ─────────────────────────────────────────────────
+    UpdateUserDto:
+      type: object
+      properties:
+        isActive:
+          type: boolean
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        password:
+          type: string
+          minLength: 8
+
+    UserItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        isSuperuser:
+          type: boolean
+        mustResetPassword:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/UserItem'
+        - type: object
+          properties:
+            memberships:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  role:
+                    type: string
+                    enum: [admin, workspace_admin, member]
+                  resourceType:
+                    type: string
+                    enum: [company, workspace, project]
+                  resourceId:
+                    type: string
+                    format: uuid
+                  createdAt:
+                    type: string
+                    format: date-time
+                  company:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      legalName:
+                        type: string
+                      taxId:
+                        type: string
+                      isActive:
+                        type: boolean
+
+    PaginatedUsers:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Superadmin — Perfil ───────────────────────────────────────────────────
+    UpdateProfileDto:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        password:
+          type: string
+          minLength: 8
+
 paths:
+  # ── Health ──────────────────────────────────────────────────────────────────
   /api/v1/health:
     get:
       operationId: HealthController_check
+      summary: Healthcheck da API e conexão com banco
+      tags: [Health]
       parameters: []
       responses:
         '200':
-          description: ''
-      tags:
-      - Health
+          description: API e banco operacionais
+
+  # ── Auth ────────────────────────────────────────────────────────────────────
   /api/v1/auth/login:
     post:
       operationId: AuthController_login
-      parameters: []
+      summary: Login com email e senha
+      tags: [auth]
       requestBody:
         required: true
         content:
@@ -22,29 +324,48 @@ paths:
       responses:
         '200':
           description: JWT retornado com dados do usuário
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                      isSuperuser:
+                        type: boolean
+                      mustResetPassword:
+                        type: boolean
         '401':
           description: Credenciais inválidas
-      summary: Login com email e senha
-      tags:
-      - auth
+
   /api/v1/auth/logout:
     post:
       operationId: AuthController_logout
-      parameters: []
+      summary: Logout (stateless — invalida sessão no cliente)
+      tags: [auth]
+      security:
+        - bearer: []
       responses:
         '200':
           description: Logout realizado
         '401':
           description: Token ausente ou inválido
-      security:
-      - bearer: []
-      summary: Logout (stateless — invalida sessão no cliente)
-      tags:
-      - auth
+
   /api/v1/auth/reset-password:
     post:
       operationId: AuthController_resetPassword
-      parameters: []
+      summary: Redefinir senha do usuário autenticado (primeiro acesso)
+      tags: [auth]
+      security:
+        - bearer: []
       requestBody:
         required: true
         content:
@@ -58,15 +379,12 @@ paths:
           description: As senhas não coincidem
         '401':
           description: Token ausente ou inválido
-      security:
-      - bearer: []
-      summary: Redefinir senha do usuário autenticado (primeiro acesso)
-      tags:
-      - auth
+
   /api/v1/auth/forgot-password:
     post:
       operationId: AuthController_forgotPassword
-      parameters: []
+      summary: Solicitar redefinição de senha via email
+      tags: [auth]
       requestBody:
         required: true
         content:
@@ -76,19 +394,19 @@ paths:
       responses:
         '200':
           description: Se o email existir, um link de redefinição será enviado
-      summary: Solicitar redefinição de senha via email
-      tags:
-      - auth
+
   /api/v1/auth/reset-password/{token}:
     post:
       operationId: AuthController_confirmResetPassword
+      summary: Redefinir senha via token de email
+      tags: [auth]
       parameters:
-      - name: token
-        required: true
-        in: path
-        description: Token recebido por email (raw hex, 64 chars)
-        schema:
-          type: string
+        - name: token
+          in: path
+          required: true
+          description: Token recebido por email (raw hex, 64 chars)
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -100,67 +418,316 @@ paths:
           description: Senha redefinida com sucesso
         '400':
           description: Token inválido ou expirado / senhas não coincidem
-      summary: Redefinir senha via token de email
-      tags:
-      - auth
-info:
-  title: Task Station API
-  description: API de gestão de projetos e tasks
-  version: '1.0'
-  contact: {}
-tags: []
-servers: []
-components:
-  securitySchemes:
-    bearer:
-      scheme: bearer
-      bearerFormat: JWT
-      type: http
-  schemas:
-    LoginDto:
-      type: object
-      properties:
-        email:
-          type: string
-          example: admin@taskstation.com
-        password:
-          type: string
-          example: Admin@123456
-          minLength: 6
-      required:
-      - email
-      - password
-    ResetPasswordDto:
-      type: object
-      properties:
-        newPassword:
-          type: string
-          example: NovaS3nh@
-          minLength: 6
-        confirmPassword:
-          type: string
-          example: NovaS3nh@
-      required:
-      - newPassword
-      - confirmPassword
-    ForgotPasswordDto:
-      type: object
-      properties:
-        email:
-          type: string
-          example: usuario@exemplo.com
-      required:
-      - email
-    ConfirmResetPasswordDto:
-      type: object
-      properties:
-        newPassword:
-          type: string
-          example: NovaS3nh@
-          minLength: 6
-        confirmPassword:
-          type: string
-          example: NovaS3nh@
-      required:
-      - newPassword
-      - confirmPassword
+
+  # ── Superadmin — Perfil ──────────────────────────────────────────────────────
+  /api/v1/superadmin/perfil:
+    patch:
+      operationId: SuperadminController_updateProfile
+      summary: Atualizar dados do próprio perfil (superusuário)
+      tags: [superadmin]
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileDto'
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserItem'
+        '409':
+          description: Email já cadastrado
+
+  # ── Superadmin — Empresas ────────────────────────────────────────────────────
+  /api/v1/superadmin/empresas:
+    get:
+      operationId: SuperadminController_listCompanies
+      summary: Listar empresas com filtros e paginação
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Busca por razão social ou CNPJ
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Filtro por status ativo/inativo
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista paginada de empresas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCompanies'
+
+    post:
+      operationId: SuperadminController_createCompany
+      summary: Criar empresa e admin inicial (transação atômica)
+      tags: [superadmin]
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompanyDto'
+      responses:
+        '201':
+          description: Empresa e admin criados com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  company:
+                    $ref: '#/components/schemas/CompanyItem'
+                  admin:
+                    $ref: '#/components/schemas/UserItem'
+        '409':
+          description: CNPJ ou email já cadastrado
+
+  /api/v1/superadmin/empresas/{id}:
+    get:
+      operationId: SuperadminController_getCompanyDetail
+      summary: Detalhes da empresa com admins, workspaces e métricas
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalhes completos da empresa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyDetail'
+        '404':
+          description: Empresa não encontrada
+
+    patch:
+      operationId: SuperadminController_updateCompany
+      summary: Editar razão social ou CNPJ da empresa
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompanyDto'
+      responses:
+        '200':
+          description: Empresa atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyItem'
+        '404':
+          description: Empresa não encontrada
+        '409':
+          description: CNPJ já cadastrado
+
+    delete:
+      operationId: SuperadminController_deleteCompany
+      summary: Soft delete de empresa
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Empresa removida (soft delete)
+        '404':
+          description: Empresa não encontrada
+
+  /api/v1/superadmin/empresas/{id}/inativar:
+    patch:
+      operationId: SuperadminController_deactivateCompany
+      summary: Inativar empresa (is_active = false)
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Empresa inativada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyItem'
+        '404':
+          description: Empresa não encontrada
+
+  /api/v1/superadmin/empresas/{id}/membros/{membershipId}/inativar:
+    patch:
+      operationId: SuperadminController_deactivateMembership
+      summary: Inativar vínculo de administrador com a empresa (soft delete do membership)
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: membershipId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Vínculo inativado
+        '400':
+          description: Não é possível inativar o único administrador da empresa
+        '404':
+          description: Vínculo não encontrado
+
+  # ── Superadmin — Usuários ────────────────────────────────────────────────────
+  /api/v1/superadmin/usuarios:
+    get:
+      operationId: SuperadminController_listUsers
+      summary: Listar todos os usuários com filtros e paginação
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Busca por nome ou email
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista paginada de usuários
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsers'
+
+  /api/v1/superadmin/usuarios/{id}:
+    get:
+      operationId: SuperadminController_getUserDetail
+      summary: Detalhes de um usuário com empresas vinculadas
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalhes completos do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '404':
+          description: Usuário não encontrado
+
+    patch:
+      operationId: SuperadminController_updateUser
+      summary: Editar dados ou status de um usuário
+      description: |
+        Permite alterar nome, email, telefone, status (isActive) e redefinir senha.
+        Ao redefinir a senha, `mustResetPassword` é automaticamente definido como `true`.
+        Não é possível alterar o próprio usuário por este endpoint.
+      tags: [superadmin]
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserDto'
+      responses:
+        '200':
+          description: Usuário atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserItem'
+        '400':
+          description: Não é possível alterar o próprio usuário
+        '404':
+          description: Usuário não encontrado
+        '409':
+          description: Email já cadastrado
