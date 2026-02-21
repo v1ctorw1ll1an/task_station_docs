@@ -76,22 +76,22 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 > **RFs cobertos:** RF005, RF006, RF007, RF008, RF009, RF010, RF011
 
 ### Backend
-- [ ] Guard de superusuário (`is_superuser = true`)
-- [ ] `POST /superadmin/empresas` — cria empresa + admin em transação atômica, envia email
-- [ ] `GET /superadmin/empresas` — listagem com filtros de status e busca
-- [ ] `PATCH /superadmin/empresas/:id` — edição de razão social, CNPJ, status
-- [ ] `PATCH /superadmin/empresas/:id/inativar` — seta `is_active = false`
-- [ ] `DELETE /superadmin/empresas/:id` — soft delete com `deleted_at`
-- [ ] `GET /superadmin/usuarios` — listagem de todos os usuários
-- [ ] `PATCH /superadmin/usuarios/:id` — inativar, reativar, soft delete
+- [x] Guard de superusuário (`is_superuser = true`)
+- [x] `POST /superadmin/empresas` — cria empresa + admin em transação atômica, envia email
+- [x] `GET /superadmin/empresas` — listagem com filtros de status e busca
+- [x] `PATCH /superadmin/empresas/:id` — edição de razão social, CNPJ, status
+- [x] `PATCH /superadmin/empresas/:id/inativar` — seta `is_active = false`
+- [x] `DELETE /superadmin/empresas/:id` — soft delete com `deleted_at`
+- [x] `GET /superadmin/usuarios` — listagem de todos os usuários
+- [x] `PATCH /superadmin/usuarios/:id` — inativar, reativar, soft delete
 
 ### Frontend
-- [ ] Layout do painel do superusuário (sidebar + área de conteúdo)
-- [ ] Listagem de empresas com filtros
-- [ ] Formulário de criação de empresa (empresa + admin no mesmo form)
-- [ ] Formulário de edição
-- [ ] Modal de confirmação para inativação e soft delete
-- [ ] Listagem de usuários com ações
+- [x] Layout do painel do superusuário (sidebar + área de conteúdo)
+- [x] Listagem de empresas com filtros
+- [x] Formulário de criação de empresa (empresa + admin no mesmo form)
+- [x] Formulário de edição
+- [x] Modal de confirmação para inativação e soft delete
+- [x] Listagem de usuários com ações
 
 **Entregável:** Superusuário opera o ciclo completo de empresas pelo painel.
 
