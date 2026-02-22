@@ -1,7 +1,9 @@
 # Especificação de Requisitos Funcionais
 **Sistema de Gestão de Projetos e Tasks**
-Versão 1.0 — MVP | 20/02/2026
-Total de requisitos: 44
+Versão 1.1 — 22/02/2026 | Total de requisitos: 44
+
+> **v1.1 — 22/02/2026:** RF002, RF006, RF011, RF018, RF019 atualizados com magic link, papéis explícitos por workspace, proteção admin-admin e revogação de admin pelo superadmin.
+> **v1.0 — 20/02/2026:** Versão inicial.
 
 ---
 
@@ -25,19 +27,22 @@ Total de requisitos: 44
 ---
 
 ### RF002 — Redefinição de Senha Obrigatória no Primeiro Acesso `● Alta`
+> **v1.1:** Substituição de senha temporária por magic link de uso único.
 
 | Campo | Detalhe |
 |---|---|
 | **Módulo** | Autenticação |
 | **Ator** | Usuários com `must_reset_password = true` |
-| **Descrição** | Usuários criados pelo superusuário ou por admins recebem uma senha temporária e são forçados a redefini-la no primeiro login. |
+| **Descrição** | Usuários criados pelo superusuário ou por admins recebem um magic link de primeiro acesso e são forçados a definir nome e senha ao utilizá-lo. |
 
 **Regras de Negócio:**
-1. Ao fazer login com `must_reset_password = true`, o sistema deve redirecionar obrigatoriamente para a tela de redefinição de senha.
-2. O usuário não pode acessar nenhuma outra parte do sistema antes de redefinir a senha.
-3. A nova senha deve atender aos critérios mínimos de segurança definidos pelo sistema.
-4. Após redefinição bem-sucedida, o campo `must_reset_password` deve ser atualizado para `false`.
-5. O sistema deve redirecionar o usuário para sua tela inicial após a redefinição.
+1. O magic link é enviado por email e aponta para `/first-access?token=<token>`.
+2. O token é de uso único, expira em 7 dias e é armazenado como hash SHA-256 no banco.
+3. Ao acessar o link, o sistema valida o token antes de exibir o formulário.
+4. O formulário solicita nome completo e nova senha (mínimo 8 caracteres) — substitui o nome temporário do cadastro.
+5. Após envio bem-sucedido, o token é invalidado (`used_at`) e `must_reset_password` é definido como `false`.
+6. O sistema autentica o usuário automaticamente e redireciona para a tela inicial.
+7. Usuários autenticados com `must_reset_password = true` (credenciais invalidadas pelo superadmin) são redirecionados para `/first-access` sem token — o formulário é idêntico mas usa a sessão existente.
 
 ---
 
@@ -91,6 +96,7 @@ Total de requisitos: 44
 ---
 
 ### RF006 — Criação de Empresa pelo Superusuário `● Alta`
+> **v1.1:** Magic link substitui senha temporária; email existente pode ser vinculado como admin.
 
 | Campo | Detalhe |
 |---|---|
@@ -99,13 +105,12 @@ Total de requisitos: 44
 | **Descrição** | O superusuário deve criar empresas no sistema, provisionando simultaneamente os dados da empresa e do seu primeiro administrador. |
 
 **Regras de Negócio:**
-1. O formulário de criação deve conter: razão social, CNPJ, e dados do admin (nome, email, telefone).
-2. O sistema deve criar a empresa e o usuário admin em uma única transação atômica.
-3. O email do admin deve ser único no sistema; caso já exista, a operação deve ser rejeitada com mensagem clara.
-4. Após criação, o sistema deve gerar uma senha temporária para o admin e enviá-la por email.
-5. O campo `must_reset_password` do admin criado deve ser definido como `true`.
-6. O sistema deve criar automaticamente um registro em `user_memberships` vinculando o admin à empresa com `role = 'admin'`.
-7. O campo `created_by` da empresa deve registrar o id do superusuário.
+1. O formulário de criação deve conter: razão social, CNPJ, e email do admin (nome opcional).
+2. O sistema deve criar a empresa e os vínculos em uma única transação atômica.
+3. Se o email do admin não existir: cria o usuário com `must_reset_password = true`, gera magic link e envia por email; o magic link é exibido na tela de confirmação para o superadmin copiar.
+4. Se o email do admin já existir: vincula o usuário existente à empresa como admin sem enviar email.
+5. O sistema deve criar automaticamente um registro em `user_memberships` vinculando o admin à empresa com `role = 'admin'`.
+6. O campo `created_by` da empresa deve registrar o id do superusuário.
 
 ---
 
@@ -173,6 +178,7 @@ Total de requisitos: 44
 ---
 
 ### RF011 — Listagem e Gerenciamento de Usuários pelo Superusuário `● Alta`
+> **v1.1:** Adicionados magic link, invalidação de credenciais e revogação de admin de empresa.
 
 | Campo | Detalhe |
 |---|---|
@@ -184,7 +190,10 @@ Total de requisitos: 44
 1. A listagem deve exibir nome, email, status e empresa(s) vinculada(s).
 2. O superusuário pode inativar ou reativar qualquer conta de usuário.
 3. O superusuário pode realizar soft delete de qualquer usuário.
-4. O superusuário não pode excluir sua própria conta.
+4. O superusuário não pode alterar a si mesmo pela tela de gestão de usuários.
+5. O superusuário pode invalidar as credenciais de qualquer usuário: seta `must_reset_password = true` e gera novo magic link, exibido na tela para cópia.
+6. O superusuário pode obter (ou regenerar) o magic link ativo de qualquer usuário com `must_reset_password = true`.
+7. O superusuário pode revogar o papel de admin de empresa de qualquer usuário diretamente pela página de detalhe do usuário, com confirmação. A operação garante que a empresa mantenha ao menos um admin ativo.
 
 ---
 
@@ -215,12 +224,13 @@ Total de requisitos: 44
 | **Descrição** | O admin de empresa deve poder criar workspaces, provisionando simultaneamente o workspace e seu primeiro administrador. |
 
 **Regras de Negócio:**
-1. O formulário deve conter: nome do workspace, descrição e dados do admin do workspace (nome, email, telefone).
-2. O sistema deve criar o workspace e o usuário admin em uma única transação atômica.
-3. Caso o email do admin já exista no sistema, o sistema deve rejeitar com mensagem clara.
-4. Após criação, o sistema deve gerar uma senha temporária para o admin e enviá-la por email.
-5. O campo `must_reset_password` do admin criado deve ser `true`.
-6. O sistema deve criar automaticamente um registro em `user_memberships` vinculando o admin ao workspace com `role = 'workspace_admin'`.
+1. O formulário deve conter: nome do workspace, descrição e email do admin do workspace.
+2. O sistema deve criar o workspace em uma transação atômica junto com os vínculos necessários.
+3. Se o email do admin **não existir** no sistema: criar o usuário com nome temporário derivado do prefixo do email (ex: `maria` de `maria@empresa.com`), vinculá-lo ao workspace como `workspace_admin` e vinculá-lo à empresa como `member`; enviar email com senha temporária.
+4. Se o email do admin **já existir** no sistema: vinculá-lo diretamente ao workspace como `workspace_admin`, sem criar novo usuário e sem enviar email. Não é necessário que o usuário já seja membro da empresa — qualquer usuário cadastrado pode ser admin de workspace.
+5. O campo `must_reset_password` deve ser `true` apenas para usuários recém-criados. No primeiro acesso, o sistema solicita nome completo e nova senha.
+6. O nome informado no primeiro acesso (`/first-access`) substitui o nome temporário.
+7. O sistema deve criar automaticamente um registro em `user_memberships` vinculando o admin ao workspace com `role = 'workspace_admin'`.
 7. O campo `created_by` do workspace deve registrar o id do admin da empresa.
 8. O workspace deve ser vinculado à empresa do admin autenticado.
 
@@ -287,6 +297,7 @@ Total de requisitos: 44
 ---
 
 ### RF018 — Gerenciamento de Membros da Empresa `● Alta`
+> **v1.1:** Papéis exibidos explicitamente por empresa e workspace; proteção admin-admin adicionada.
 
 | Campo | Detalhe |
 |---|---|
@@ -295,29 +306,34 @@ Total de requisitos: 44
 | **Descrição** | O admin de empresa deve gerenciar os membros cadastrados em sua empresa. |
 
 **Regras de Negócio:**
-1. O admin pode visualizar todos os usuários vinculados à sua empresa via `user_memberships`.
-2. O admin pode inativar a conta de um membro (`is_active = false`).
+1. O admin pode visualizar todos os usuários com qualquer membership relacionado à empresa. A coluna "Papéis adicionais" exibe: badge "Admin da empresa" (se company admin), badges "Admin: [workspace]" (se workspace_admin), ou `—` (se apenas membro base).
+2. O admin pode inativar a conta de um membro (`is_active = false`) — bloqueia o acesso à plataforma.
 3. O admin pode reativar a conta de um membro.
-4. O admin pode realizar soft delete de um membro da empresa.
-5. O admin não pode gerenciar contas de usuários de outras empresas.
-6. O admin não pode excluir sua própria conta.
-7. Ao inativar ou deletar um membro, seus vínculos em `user_memberships` devem ser mantidos para auditoria.
+4. O admin pode remover um membro da empresa: soft delete de todos os memberships do usuário nesta empresa (company + workspaces). A conta do usuário não é excluída.
+5. O admin não pode alterar dados pessoais (nome, email, senha) de nenhum usuário — essa responsabilidade é exclusiva do superusuário.
+6. O admin não pode gerenciar a si mesmo (inativar, remover).
+7. **O admin não pode inativar, remover nem alterar os papéis de outro admin da mesma empresa.** Essas ações são bloqueadas no backend (403) e os botões de ação são ocultados no frontend para linhas de admins.
+8. Ao inativar ou remover um membro, seus vínculos em `user_memberships` são mantidos para auditoria (soft delete com `deleted_at`).
 
 ---
 
 ### RF019 — Adição de Admin Adicional à Empresa `● Média`
+> **v1.1:** Promoção exige confirmation dialog; revogação restrita ao superadmin; proteção de papéis por workspace adicionada.
 
 | Campo | Detalhe |
 |---|---|
 | **Módulo** | Empresa |
 | **Ator** | Admin de Empresa |
-| **Descrição** | O admin de empresa deve poder promover um membro existente a admin da empresa. |
+| **Descrição** | O admin de empresa deve poder promover um membro existente a admin da empresa e gerenciar papéis de workspace_admin. |
 
 **Regras de Negócio:**
 1. Uma empresa pode ter múltiplos admins.
-2. A promoção cria um novo registro em `user_memberships` com `resource_type = 'empresa'`, `role = 'admin'`.
-3. O admin pode revogar o papel de admin de outro admin (mas não o próprio).
-4. Deve haver sempre pelo menos um admin ativo na empresa.
+2. A promoção a company admin cria um novo registro em `user_memberships` com `resource_type = 'company'`, `role = 'admin'`. Exige confirmation dialog explicitando implicações e que a revogação só pode ser feita pelo superadmin.
+3. O admin não pode revogar o papel de outro company admin — essa ação é exclusiva do superadmin.
+4. Deve haver sempre pelo menos um admin ativo na empresa (garantido na revogação pelo superadmin).
+5. O admin pode promover qualquer membro (não-admin) a `workspace_admin` de um workspace específico via modal de papéis.
+6. O admin pode revogar o papel de `workspace_admin` de qualquer membro (não-admin) via modal de papéis.
+7. Admins de empresa já têm acesso total implícito a todos os workspaces — os toggles de workspace ficam desabilitados para company admins.
 
 ---
 
@@ -365,11 +381,11 @@ Total de requisitos: 44
 | **Descrição** | O admin de workspace deve poder adicionar membros ao workspace. |
 
 **Regras de Negócio:**
-1. Somente usuários já cadastrados na empresa podem ser adicionados ao workspace.
+1. Qualquer usuário cadastrado no sistema pode ser adicionado ao workspace, independentemente de já ser membro da empresa. Um usuário pode ser admin de workspace sem ter membership explícito no nível de empresa.
 2. A adição cria um registro em `user_memberships` com `resource_type = 'workspace'`.
 3. O role padrão ao adicionar um membro é `'membro'`.
 4. O admin pode definir o role no momento da adição.
-5. Um usuário pode pertencer a múltiplos workspaces da mesma empresa com roles diferentes.
+5. Um usuário pode pertencer a múltiplos workspaces com roles diferentes.
 
 ---
 

@@ -13,6 +13,10 @@ tags:
     description: Autenticação e recuperação de senha
   - name: superadmin
     description: Painel do superusuário — acesso restrito
+  - name: me
+    description: Dados do usuário autenticado
+  - name: empresa
+    description: Painel do admin de empresa — workspaces e membros
 
 components:
   securitySchemes:
@@ -275,6 +279,126 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Empresa — Workspaces ─────────────────────────────────────────────────
+    CreateWorkspaceDto:
+      type: object
+      required: [name, adminName, adminEmail]
+      properties:
+        name:
+          type: string
+          example: Desenvolvimento
+        description:
+          type: string
+          example: Workspace de desenvolvimento de produto
+        adminName:
+          type: string
+          example: Maria Souza
+        adminEmail:
+          type: string
+          format: email
+          example: maria@empresa.com
+
+    UpdateWorkspaceDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Produto
+        description:
+          type: string
+          example: Nova descrição
+
+    WorkspaceItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaginatedWorkspaces:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Empresa — Membros ─────────────────────────────────────────────────────
+    PromoteMemberDto:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+
+    MemberItem:
+      type: object
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [admin, workspace_admin, member]
+        memberSince:
+          type: string
+          format: date-time
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            email:
+              type: string
+            phone:
+              type: string
+              nullable: true
+            isActive:
+              type: boolean
+            mustResetPassword:
+              type: boolean
+            createdAt:
+              type: string
+              format: date-time
+
+    PaginatedMembers:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberItem'
         total:
           type: integer
         page:
@@ -731,3 +855,413 @@ paths:
           description: Usuário não encontrado
         '409':
           description: Email já cadastrado
+
+  # ── Me ───────────────────────────────────────────────────────────────────────
+  /api/v1/me/empresas:
+    get:
+      operationId: MeController_getMyCompanies
+      summary: Listar empresas onde o usuário autenticado é admin
+      tags: [me]
+      security:
+        - bearer: []
+      responses:
+        '200':
+          description: Lista de empresas administradas pelo usuário
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    companyId:
+                      type: string
+                      format: uuid
+                    legalName:
+                      type: string
+                    role:
+                      type: string
+                      enum: [admin]
+
+  # ── Empresa — Workspaces ──────────────────────────────────────────────────────
+  /api/v1/empresa/{companyId}/workspaces:
+    post:
+      operationId: EmpresaController_createWorkspace
+      summary: Criar workspace e vincular admin
+      description: |
+        Se o email do admin não existir no sistema: cria usuário, vincula à empresa como member
+        e ao workspace como workspace_admin, envia email com senha temporária.
+        Se o email já existir: vincula o usuário existente ao workspace como workspace_admin
+        sem verificar membership na empresa (sem enumeração de usuários).
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceDto'
+      responses:
+        '201':
+          description: Workspace criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workspace:
+                    $ref: '#/components/schemas/WorkspaceItem'
+                  admin:
+                    $ref: '#/components/schemas/UserItem'
+        '403':
+          description: Não é admin desta empresa
+        '404':
+          description: Empresa não encontrada ou inativa
+
+    get:
+      operationId: EmpresaController_listWorkspaces
+      summary: Listar workspaces da empresa com filtros e paginação
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Filtro por status ativo/inativo
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista paginada de workspaces
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWorkspaces'
+        '403':
+          description: Não é admin desta empresa
+
+  /api/v1/empresa/{companyId}/workspaces/{workspaceId}:
+    get:
+      operationId: EmpresaController_getWorkspace
+      summary: Detalhes de um workspace
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceItem'
+        '403':
+          description: Não é admin desta empresa
+        '404':
+          description: Workspace não encontrado
+
+    patch:
+      operationId: EmpresaController_updateWorkspace
+      summary: Editar nome e/ou descrição do workspace
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkspaceDto'
+      responses:
+        '200':
+          description: Workspace atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceItem'
+        '403':
+          description: Não é admin desta empresa
+        '404':
+          description: Workspace não encontrado
+
+    delete:
+      operationId: EmpresaController_deleteWorkspace
+      summary: Soft delete do workspace
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Workspace removido (soft delete)
+        '403':
+          description: Não é admin desta empresa
+        '404':
+          description: Workspace não encontrado
+
+  /api/v1/empresa/{companyId}/workspaces/{workspaceId}/inativar:
+    patch:
+      operationId: EmpresaController_deactivateWorkspace
+      summary: Inativar workspace (isActive = false)
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workspace inativado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceItem'
+        '403':
+          description: Não é admin desta empresa
+        '404':
+          description: Workspace não encontrado
+
+  # ── Empresa — Membros ─────────────────────────────────────────────────────────
+  /api/v1/empresa/{companyId}/membros:
+    get:
+      operationId: EmpresaController_listMembers
+      summary: Listar membros da empresa com filtros e paginação
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Busca por nome ou email
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista paginada de membros
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMembers'
+        '403':
+          description: Não é admin desta empresa
+
+  /api/v1/empresa/{companyId}/membros/{userId}:
+    patch:
+      operationId: EmpresaController_updateMember
+      summary: Ativar ou inativar um membro da empresa
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Membro atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserItem'
+        '400':
+          description: Não é possível alterar o próprio usuário
+        '403':
+          description: Não é admin desta empresa
+        '404':
+          description: Membro não encontrado nesta empresa
+
+  # ── Empresa — Admins ──────────────────────────────────────────────────────────
+  /api/v1/empresa/{companyId}/admins:
+    post:
+      operationId: EmpresaController_promoteToAdmin
+      summary: Promover membro a admin da empresa
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoteMemberDto'
+      responses:
+        '201':
+          description: Membership de admin criado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  userId:
+                    type: string
+                    format: uuid
+                  role:
+                    type: string
+                    enum: [admin]
+                  resourceType:
+                    type: string
+                    enum: [company]
+                  resourceId:
+                    type: string
+                    format: uuid
+                  createdAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Usuário não é membro desta empresa
+        '403':
+          description: Não é admin desta empresa
+        '409':
+          description: Usuário já é administrador desta empresa
+
+  /api/v1/empresa/{companyId}/admins/{userId}:
+    delete:
+      operationId: EmpresaController_revokeAdmin
+      summary: Revogar papel de admin de um usuário
+      description: Não é possível revogar o único admin ativo. Não é possível revogar o próprio papel.
+      tags: [empresa]
+      security:
+        - bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Papel de admin revogado
+        '400':
+          description: Não pode revogar o próprio papel / último admin restante
+        '403':
+          description: Não é admin desta empresa
+        '404':
+          description: Papel de admin não encontrado
