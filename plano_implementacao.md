@@ -161,23 +161,36 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 > **RFs cobertos:** RF020, RF021, RF022, RF023, RF024, RF025
 
 ### Backend
-- [ ] Guard de workspace admin
-- [ ] `POST /workspace/:id/projetos` — cria projeto + colunas Kanban padrão automaticamente
-- [ ] `GET /workspace/:id/projetos` — listagem de projetos do workspace
-- [ ] `GET /workspace/:id/membros` — lista membros
-- [ ] `POST /workspace/:id/membros` — adiciona membro (qualquer usuário do sistema; ver RF022)
-- [ ] `DELETE /workspace/:id/membros/:userId` — soft delete do membership
-- [ ] `POST /workspace/:id/admins` — promove membro a workspace admin
-- [ ] `DELETE /workspace/:id/admins/:userId` — revoga papel
+- [x] Guard de workspace admin (`WorkspaceAdminGuard`)
+- [x] Guard de membro de workspace (`WorkspaceMemberGuard`) — aceita qualquer membro; injeta `req.workspaceMemberRole`
+- [x] `POST /workspace/:id/projetos` — cria projeto + colunas Kanban padrão automaticamente
+- [x] `GET /workspace/:id/projetos` — listagem de projetos; membros vêem apenas ativos (RF025), admins vêem todos
+- [x] `GET /workspace/:id/projetos/:projectId` — detalhes de um projeto
+- [x] `PATCH /workspace/:id/projetos/:projectId` — edição de nome/descrição
+- [x] `PATCH /workspace/:id/projetos/:projectId/inativar` — seta isActive=false
+- [x] `PATCH /workspace/:id/projetos/:projectId/ativar` — seta isActive=true
+- [x] `DELETE /workspace/:id/projetos/:projectId` — soft delete com deletedAt
+- [x] `GET /workspace/:id/membros` — lista membros
+- [x] `POST /workspace/:id/membros` — adiciona membro (qualquer usuário do sistema; ver RF022)
+- [x] `DELETE /workspace/:id/membros/:userId` — soft delete do membership
+- [x] `POST /workspace/:id/admins` — promove membro a workspace admin
+- [x] `DELETE /workspace/:id/admins/:userId` — revoga papel
+- [x] `GET /me/workspaces` — lista workspaces ativos do usuário autenticado (qualquer role)
+- [x] `GET /me/empresas` corrigido — retorna role real de workspace members (member/workspace_admin)
 
 ### Frontend
-- [ ] Layout do painel do workspace
-- [ ] Dashboard com projetos ativos, membros e tasks com prazo próximo
-- [ ] Listagem de projetos
-- [ ] Formulário de criação de projeto
-- [ ] Gestão de membros do workspace
+- [x] Layout do painel do workspace — detecta isAdmin via GET /membros; redireciona para /dashboard se sem acesso
+- [x] Listagem de projetos com gestão completa (admin) ou view somente-leitura (membro)
+- [x] Formulário de criação de projeto (somente admins)
+- [x] Edição, inativação e exclusão de projetos (somente admins)
+- [x] Gestão de membros do workspace (somente admins)
+- [x] Sidebar do workspace — "Membros" visível apenas para admins
+- [x] `/empresa/:companyId/workspaces` — company admins: gestão completa; outros: lista de seus workspaces via GET /me/workspaces
+- [x] `WorkspacesMemberView` — componente de lista de workspaces para membros/workspace_admins com botão "Entrar"
 
-**Entregável:** Admin de workspace cria projetos e gerencia seu time.
+**Entregável:** Admin de workspace cria projetos e gerencia seu time; membros vêem os projetos ativos do seu workspace.
+
+> **Nota RF025:** Membros regulares acessam `GET /workspace/:id/projetos` via `WorkspaceMemberGuard`; o backend força `isActive=true` automaticamente para não-admins. Company admins e workspace admins vêem projetos inativos também.
 
 ---
 
