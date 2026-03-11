@@ -1,7 +1,8 @@
 # Especificação de Requisitos Funcionais
 **Sistema de Gestão de Projetos e Tasks**
-Versão 1.1 — 22/02/2026 | Total de requisitos: 44
+Versão 1.2 — 11/03/2026 | Total de requisitos: 47
 
+> **v1.2 — 11/03/2026:** RF032, RF033, RF036, RF039 atualizados para refletir multi-assignee implementado; RF045 (Labels), RF046 (Comentários), RF047 (Histórico de Alterações de Task) adicionados.
 > **v1.1 — 22/02/2026:** RF002, RF006, RF011, RF018, RF019 atualizados com magic link, papéis explícitos por workspace, proteção admin-admin e revogação de admin pelo superadmin.
 > **v1.0 — 20/02/2026:** Versão inicial.
 
@@ -71,7 +72,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 
 **Regras de Negócio:**
 1. O sistema deve enviar um email com link de redefinição de senha.
-2. O link deve ter validade de tempo limitado (ex: 2 horas).
+2. O link deve ter validade de tempo limitado (2 horas).
 3. O link deve ser de uso único e invalidado após utilização.
 4. Se o email não existir no sistema, a resposta deve ser idêntica à do email válido (segurança contra enumeração).
 
@@ -109,7 +110,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 2. O sistema deve criar a empresa e os vínculos em uma única transação atômica.
 3. Se o email do admin não existir: cria o usuário com `must_reset_password = true`, gera magic link e envia por email; o magic link é exibido na tela de confirmação para o superadmin copiar.
 4. Se o email do admin já existir: vincula o usuário existente à empresa como admin sem enviar email.
-5. O sistema deve criar automaticamente um registro em `user_memberships` vinculando o admin à empresa com `role = 'admin'`.
+5. O sistema deve criar automaticamente um registro em `memberships` vinculando o admin à empresa com `role = 'admin'`.
 6. O campo `created_by` da empresa deve registrar o id do superusuário.
 
 ---
@@ -226,13 +227,13 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 **Regras de Negócio:**
 1. O formulário deve conter: nome do workspace, descrição e email do admin do workspace.
 2. O sistema deve criar o workspace em uma transação atômica junto com os vínculos necessários.
-3. Se o email do admin **não existir** no sistema: criar o usuário com nome temporário derivado do prefixo do email (ex: `maria` de `maria@empresa.com`), vinculá-lo ao workspace como `workspace_admin` e vinculá-lo à empresa como `member`; enviar email com senha temporária.
-4. Se o email do admin **já existir** no sistema: vinculá-lo diretamente ao workspace como `workspace_admin`, sem criar novo usuário e sem enviar email. Não é necessário que o usuário já seja membro da empresa — qualquer usuário cadastrado pode ser admin de workspace.
+3. Se o email do admin **não existir** no sistema: criar o usuário com nome temporário derivado do prefixo do email, vinculá-lo ao workspace como `workspace_admin` e vinculá-lo à empresa como `member`; enviar email com magic link.
+4. Se o email do admin **já existir** no sistema: vinculá-lo diretamente ao workspace como `workspace_admin`, sem criar novo usuário e sem enviar email. Não é necessário que o usuário já seja membro da empresa.
 5. O campo `must_reset_password` deve ser `true` apenas para usuários recém-criados. No primeiro acesso, o sistema solicita nome completo e nova senha.
 6. O nome informado no primeiro acesso (`/first-access`) substitui o nome temporário.
-7. O sistema deve criar automaticamente um registro em `user_memberships` vinculando o admin ao workspace com `role = 'workspace_admin'`.
-7. O campo `created_by` do workspace deve registrar o id do admin da empresa.
-8. O workspace deve ser vinculado à empresa do admin autenticado.
+7. O sistema deve criar automaticamente um registro em `memberships` vinculando o admin ao workspace com `role = 'workspace_admin'`.
+8. O campo `created_by` do workspace deve registrar o id do admin da empresa.
+9. O workspace deve ser vinculado à empresa do admin autenticado.
 
 ---
 
@@ -313,7 +314,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 5. O admin não pode alterar dados pessoais (nome, email, senha) de nenhum usuário — essa responsabilidade é exclusiva do superusuário.
 6. O admin não pode gerenciar a si mesmo (inativar, remover).
 7. **O admin não pode inativar, remover nem alterar os papéis de outro admin da mesma empresa.** Essas ações são bloqueadas no backend (403) e os botões de ação são ocultados no frontend para linhas de admins.
-8. Ao inativar ou remover um membro, seus vínculos em `user_memberships` são mantidos para auditoria (soft delete com `deleted_at`).
+8. Ao inativar ou remover um membro, seus vínculos em `memberships` são mantidos para auditoria (soft delete com `deleted_at`).
 
 ---
 
@@ -328,7 +329,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 
 **Regras de Negócio:**
 1. Uma empresa pode ter múltiplos admins.
-2. A promoção a company admin cria um novo registro em `user_memberships` com `resource_type = 'company'`, `role = 'admin'`. Exige confirmation dialog explicitando implicações e que a revogação só pode ser feita pelo superadmin.
+2. A promoção a company admin cria um novo registro em `memberships` com `resource_type = 'company'`, `role = 'admin'`. Exige confirmation dialog explicitando implicações e que a revogação só pode ser feita pelo superadmin.
 3. O admin não pode revogar o papel de outro company admin — essa ação é exclusiva do superadmin.
 4. Deve haver sempre pelo menos um admin ativo na empresa (garantido na revogação pelo superadmin).
 5. O admin pode promover qualquer membro (não-admin) a `workspace_admin` de um workspace específico via modal de papéis.
@@ -382,8 +383,8 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 
 **Regras de Negócio:**
 1. Qualquer usuário cadastrado no sistema pode ser adicionado ao workspace, independentemente de já ser membro da empresa. Um usuário pode ser admin de workspace sem ter membership explícito no nível de empresa.
-2. A adição cria um registro em `user_memberships` com `resource_type = 'workspace'`.
-3. O role padrão ao adicionar um membro é `'membro'`.
+2. A adição cria um registro em `memberships` com `resource_type = 'workspace'`.
+3. O role padrão ao adicionar um membro é `'member'`.
 4. O admin pode definir o role no momento da adição.
 5. Um usuário pode pertencer a múltiplos workspaces com roles diferentes.
 
@@ -398,7 +399,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 | **Descrição** | O admin de workspace deve poder remover membros do workspace sem excluir a conta do usuário. |
 
 **Regras de Negócio:**
-1. A remoção realiza soft delete no registro de `user_memberships` correspondente.
+1. A remoção realiza soft delete no registro de `memberships` correspondente.
 2. O usuário removido perde acesso ao workspace mas sua conta permanece ativa no sistema.
 3. O admin de workspace não pode remover outros admins de workspace (apenas o admin de empresa pode).
 4. O admin de workspace não pode se auto-remover.
@@ -415,7 +416,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 
 **Regras de Negócio:**
 1. Um workspace pode ter múltiplos admins.
-2. A promoção cria ou atualiza o registro em `user_memberships` com `role = 'workspace_admin'`.
+2. A promoção cria ou atualiza o registro em `memberships` com `role = 'workspace_admin'`.
 3. O admin pode revogar o papel de admin de workspace de outro admin.
 4. Deve haver sempre pelo menos um admin ativo no workspace.
 
@@ -451,6 +452,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 2. Cada coluna deve exibir suas tasks na ordem definida pelo campo `ordem` das tasks.
 3. Tasks com `deleted_at` preenchido não devem aparecer.
 4. O usuário deve visualizar apenas projetos de workspaces aos quais pertence.
+5. O card de task deve exibir: título, prioridade (indicador visual), assignees (avatares), labels (chips coloridos) e indicador de prazo expirado.
 
 ---
 
@@ -519,6 +521,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 ---
 
 ### RF031 — Adição de Membros Externos ao Projeto `● Média`
+> **Nota v1.2:** Não implementado na Fase 6. A tabela `project_restrictions` foi criada no schema mas os endpoints e frontend ainda não foram desenvolvidos.
 
 | Campo | Detalhe |
 |---|---|
@@ -528,7 +531,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 
 **Regras de Negócio:**
 1. O membro adicionado ao projeto não precisa ser membro do workspace.
-2. A adição cria um registro em `user_memberships` com `resource_type = 'projeto'`.
+2. A adição cria um registro em `project_restrictions` vinculando o usuário ao projeto específico.
 3. O membro externo tem acesso apenas ao projeto específico, não ao workspace inteiro.
 4. O admin pode remover o acesso externo a qualquer momento.
 
@@ -537,6 +540,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 ## Módulo: Tasks
 
 ### RF032 — Criação de Task `● Alta`
+> **v1.2:** Multi-assignee implementado via tabela junction `task_assignees`; campo `assignee_id` removido da tabela `tasks`. Labels disponíveis na criação.
 
 | Campo | Detalhe |
 |---|---|
@@ -545,16 +549,17 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 | **Descrição** | Os membros com acesso ao projeto devem poder criar tasks no Kanban. |
 
 **Regras de Negócio:**
-1. O formulário deve conter: título, descrição, prioridade, data de início, data de vencimento, assigned.
+1. O formulário deve conter: título, descrição, prioridade, data de início, data de vencimento, responsáveis (múltiplos) e labels.
 2. A task deve ser vinculada a uma coluna do Kanban no momento da criação.
 3. O campo `reporter_id` deve ser preenchido automaticamente com o id do usuário autenticado.
 4. O campo `ordem` deve ser definido como o último da coluna (inserção no final).
 5. O campo `created_by` deve registrar o id do criador.
-6. O campo `status` deve refletir a coluna em que a task está.
+6. Qualquer membro do projeto pode ser atribuído como responsável; uma task pode ter múltiplos responsáveis.
 
 ---
 
 ### RF033 — Edição de Task `● Alta`
+> **v1.2:** Multi-assignee — múltiplos responsáveis podem ser adicionados/removidos.
 
 | Campo | Detalhe |
 |---|---|
@@ -563,8 +568,8 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 | **Descrição** | Os membros devem poder editar os dados de uma task. |
 
 **Regras de Negócio:**
-1. Campos editáveis: título, descrição, prioridade, data de início, data de vencimento, assigned.
-2. Alterações devem atualizar o campo `updated_at`.
+1. Campos editáveis: título, descrição, prioridade, data de início, data de vencimento, responsáveis (múltiplos), labels.
+2. Alterações devem atualizar o campo `updated_at` e registrar entrada em `task_history`.
 3. O campo `reporter_id` não deve ser alterável após a criação.
 4. Apenas membros com acesso ao projeto podem editar tasks daquele projeto.
 
@@ -579,7 +584,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 | **Descrição** | Os membros devem poder mover tasks entre colunas e reordenar tasks dentro de uma mesma coluna via drag-and-drop. |
 
 **Regras de Negócio:**
-1. Ao mover para outra coluna, o campo `kanban_column_id` da task deve ser atualizado.
+1. Ao mover para outra coluna, o campo `column_id` da task deve ser atualizado.
 2. O campo `ordem` deve ser recalculado com base na posição de destino usando espaçamento numérico.
 3. Ao reordenar dentro da mesma coluna, apenas o campo `ordem` deve ser atualizado.
 4. A operação deve ser otimista no frontend e confirmada via API.
@@ -603,18 +608,19 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 
 ---
 
-### RF036 — Atribuição de Responsável (Assigned) à Task `● Alta`
+### RF036 — Atribuição de Responsáveis à Task `● Alta`
+> **v1.2:** Expandido de single-assignee (MVP) para multi-assignee. `assignee_id` removido de `tasks`; gerenciado via `task_assignees`.
 
 | Campo | Detalhe |
 |---|---|
 | **Módulo** | Tasks |
 | **Ator** | Membros do Projeto, Admin de Workspace |
-| **Descrição** | O usuário deve poder atribuir ou alterar o responsável (assigned) de uma task. |
+| **Descrição** | O usuário deve poder atribuir ou remover um ou mais responsáveis de uma task. |
 
 **Regras de Negócio:**
-1. Somente membros com acesso ao projeto podem ser atribuídos como assigned.
-2. A task deve ter no máximo um assigned por vez (MVP).
-3. O assigned pode ser removido, deixando o campo `assigned_id` como `null`.
+1. Somente membros com acesso ao projeto podem ser atribuídos como responsáveis.
+2. Uma task pode ter zero ou múltiplos responsáveis simultaneamente.
+3. Responsáveis são gerenciados via tabela junction `task_assignees` (taskId, userId).
 4. O sistema deve notificar o usuário atribuído (quando notificações forem implementadas).
 
 ---
@@ -646,22 +652,83 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 1. A data de vencimento não pode ser anterior à data de início.
 2. Ambas as datas são opcionais.
 3. Tasks com data de vencimento expirada devem ser visualmente sinalizadas no Kanban.
-4. O sistema deve suportar apenas data (sem hora) no MVP.
+4. O sistema deve suportar apenas data (sem hora).
 
 ---
 
 ### RF039 — Visualização de Detalhes da Task `● Alta`
+> **v1.2:** Tela de detalhes expandida com labels, comentários e histórico. Comentários acima do histórico; mais novo primeiro em ambas as seções.
 
 | Campo | Detalhe |
 |---|---|
 | **Módulo** | Tasks |
 | **Ator** | Membros do Projeto |
-| **Descrição** | O usuário deve poder abrir uma task e visualizar todos os seus detalhes. |
+| **Descrição** | O usuário deve poder abrir uma task e visualizar todos os seus detalhes, incluindo comentários e histórico de alterações. |
 
 **Regras de Negócio:**
-1. A tela de detalhes deve exibir: título, descrição, prioridade, reporter, assigned, datas, coluna atual e histórico de alterações.
+1. A tela de detalhes deve exibir: título, descrição, prioridade, reporter, responsáveis (múltiplos), datas, labels, coluna atual.
 2. A tela de detalhes deve permitir edição inline dos campos.
 3. Deve ser possível acessar a tela de detalhes diretamente pelo card no Kanban.
+4. A seção de **comentários** deve estar visível por padrão (colapsável); exibida acima do histórico.
+5. A seção de **histórico de alterações** deve estar recolhida por padrão (expansível via ícone de relógio).
+6. Ambas as seções exibem entradas do mais novo ao mais antigo.
+
+---
+
+## Módulo: Labels
+
+### RF045 — Gerenciamento de Labels do Projeto `● Média`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Labels |
+| **Ator** | Admin de Workspace, Admin de Empresa |
+| **Descrição** | O admin deve poder criar, editar e excluir labels coloridas dentro de um projeto para categorizar tasks. |
+
+**Regras de Negócio:**
+1. Uma label pertence a um projeto específico e contém nome e cor (hex).
+2. O admin pode criar, renomear e recolorir labels a qualquer momento.
+3. Ao excluir uma label, seus vínculos com tasks (`task_labels`) devem ser removidos em cascade.
+4. Membros podem visualizar as labels disponíveis e aplicá-las às tasks.
+5. Uma task pode ter zero ou múltiplas labels simultaneamente.
+
+---
+
+## Módulo: Colaboração
+
+### RF046 — Comentários em Tasks `● Média`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Colaboração |
+| **Ator** | Membros do Projeto |
+| **Descrição** | Os membros devem poder comentar em tasks para colaborar e registrar discussões. |
+
+**Regras de Negócio:**
+1. Qualquer membro com acesso ao projeto pode criar comentários em qualquer task do projeto.
+2. O conteúdo máximo de um comentário é 5000 caracteres.
+3. Comentários são exibidos em ordem decrescente de criação (mais novo primeiro).
+4. O autor do comentário pode editá-lo a qualquer momento; admins também podem editar.
+5. O autor do comentário pode excluí-lo (soft delete); admins também podem excluir.
+6. O sistema deve detectar e renderizar automaticamente URLs como links clicáveis.
+7. O sistema deve suportar @menções a outros membros com acesso à task: ao digitar `@` no campo de comentário, o sistema exibe um autocomplete com os membros disponíveis; as menções são destacadas visualmente nos comentários exibidos.
+
+---
+
+### RF047 — Histórico de Alterações de Task `● Média`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Colaboração |
+| **Ator** | Sistema, Membros do Projeto |
+| **Descrição** | O sistema deve registrar automaticamente todas as alterações de campos de uma task, exibindo um histórico auditável. |
+
+**Regras de Negócio:**
+1. A cada PATCH de task bem-sucedido, o sistema deve criar uma entrada em `task_history` para cada campo alterado, registrando: campo, valor anterior, valor novo, usuário e timestamp.
+2. Campos rastreados: título, descrição, prioridade, data de início, prazo, responsáveis, labels, coluna.
+3. O histórico é somente-leitura — nenhum usuário pode editá-lo ou removê-lo manualmente.
+4. O histórico é exibido em ordem decrescente (mais recente primeiro), recolhido por padrão na tela de detalhes da task.
+5. Para cada entrada, o sistema deve exibir o valor anterior (tachado) e o valor novo.
 
 ---
 
@@ -673,15 +740,15 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 |---|---|
 | **Módulo** | Permissões |
 | **Ator** | Sistema |
-| **Descrição** | O sistema deve controlar todo acesso a recursos com base nos registros de `user_memberships`. |
+| **Descrição** | O sistema deve controlar todo acesso a recursos com base nos registros de `memberships`. |
 
 **Regras de Negócio:**
 1. Toda requisição a um recurso protegido deve verificar a existência de um membership válido (`deleted_at null`) para o usuário autenticado.
-2. O campo `resource_type` identifica o tipo do recurso (`empresa`, `workspace`, `projeto`).
+2. O campo `resource_type` identifica o tipo do recurso (`company`, `workspace`, `project`).
 3. O campo `resource_id` identifica o recurso específico.
 4. O campo `role` determina quais ações o usuário pode executar naquele recurso.
-5. A hierarquia de permissões é: `superusuario > admin > workspace_admin > membro`.
-6. Um admin de empresa herda implicitamente todos os poderes de workspace_admin e membro para os recursos de sua empresa.
+5. A hierarquia de permissões é: `superuser > admin > workspace_admin > member`.
+6. Um admin de empresa herda implicitamente todos os poderes de workspace_admin e member para os recursos de sua empresa.
 7. Um membership inativo (soft deleted) deve ser tratado como inexistente para fins de controle de acesso.
 
 ---
@@ -695,7 +762,7 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 | **Descrição** | O sistema deve suportar usuários vinculados à empresa mas ainda não alocados em nenhum workspace. |
 
 **Regras de Negócio:**
-1. Um usuário pode ter membership apenas no nível de empresa (`resource_type = 'empresa'`, `role = 'membro'`).
+1. Um usuário pode ter membership apenas no nível de empresa (`resource_type = 'company'`, `role = 'member'`).
 2. Esse usuário não deve visualizar nenhum workspace até ser adicionado a um.
 3. Esse estado representa um usuário recém-cadastrado aguardando alocação.
 
@@ -749,4 +816,4 @@ Versão 1.1 — 22/02/2026 | Total de requisitos: 44
 1. O campo `created_by` deve ser preenchido automaticamente com o id do usuário autenticado no momento da criação.
 2. Para entidades criadas pelo superusuário, `created_by` deve registrar o id do superusuário.
 3. O campo `created_by` não deve ser alterável após a criação.
-4. O campo deve existir nas tabelas: `empresas`, `workspaces`, `projetos`, `tasks`.
+4. O campo deve existir nas tabelas: `companies`, `workspaces`, `projects`, `tasks`.

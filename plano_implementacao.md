@@ -2,6 +2,7 @@
 **Sistema de Gestão de Projetos e Tasks**
 Stack: Next.js · NestJS · PostgreSQL · Prisma · JWT
 
+> **v1.2 — 11/03/2026:** Fase 6 marcada como concluída com as implementações reais; expansão de single-assignee para multi-assignee; adição de labels, comentários, histórico de alterações e @menções nos comentários.
 > **v1.1 — 22/02/2026:** Magic link de primeiro acesso substituiu senha temporária; painel de papéis por workspace; proteção admin-admin; superadmin pode revogar admin de empresa pela página do usuário.
 > **v1.0 — 20/02/2026:** Versão inicial.
 
@@ -196,32 +197,53 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 
 ## Fase 6 — Kanban e Tasks
 > **Objetivo:** Membros visualizam e operam o quadro Kanban com todas as funcionalidades de task.
-> **RFs cobertos:** RF026, RF027, RF028, RF029, RF030, RF031, RF032, RF033, RF034, RF035, RF036, RF037, RF038, RF039
+> **RFs cobertos:** RF026, RF027, RF028, RF029, RF030, RF032, RF033, RF034, RF035, RF036, RF037, RF038, RF039, RF045, RF046, RF047
+
+> **Nota v1.2:** O RF031 (colaboradores externos de projeto) não foi implementado nesta fase. O assignee foi expandido de single para multi-assignee via tabela junction `task_assignees`, divergindo do design original do MVP.
 
 ### Backend
-- [ ] `GET /projetos/:id/kanban` — retorna colunas + tasks ordenadas
-- [ ] `POST /projetos/:id/colunas` — cria nova coluna
-- [ ] `PATCH /projetos/:id/colunas/:colId` — edita nome/cor
-- [ ] `PATCH /projetos/:id/colunas/reorder` — reordena colunas (atualiza `ordem`)
-- [ ] `DELETE /projetos/:id/colunas/:colId` — soft delete (exige migração de tasks)
-- [ ] `POST /projetos/:id/tasks` — cria task com todos os campos
-- [ ] `PATCH /projetos/:id/tasks/:taskId` — edição de task
-- [ ] `PATCH /projetos/:id/tasks/:taskId/move` — move task de coluna ou reordena
-- [ ] `DELETE /projetos/:id/tasks/:taskId` — soft delete de task
-- [ ] `PATCH /projetos/:id/tasks/:taskId/assign` — atribui ou remove assigned
-- [ ] Lógica de rebalanceamento de `ordem` em background
-- [ ] `POST /projetos/:id/colaboradores` — adiciona membro externo (RF031)
+- [x] `GET /projetos/:id/kanban` — retorna colunas + tasks ordenadas (com assignees, labels, reporter)
+- [x] `POST /projetos/:id/colunas` — cria nova coluna
+- [x] `PATCH /projetos/:id/colunas/:colId` — edita nome/cor
+- [x] `PATCH /projetos/:id/colunas/reorder` — reordena colunas (atualiza `ordem`)
+- [x] `DELETE /projetos/:id/colunas/:colId` — soft delete (exige migração de tasks para outra coluna)
+- [x] `POST /projetos/:id/tasks` — cria task (título, descrição, prioridade, datas, multi-assignee, labels)
+- [x] `PATCH /projetos/:id/tasks/:taskId` — edição de task (todos os campos + assignees + labels)
+- [x] `PATCH /projetos/:id/tasks/:taskId/move` — move task de coluna ou reordena dentro da coluna
+- [x] `DELETE /projetos/:id/tasks/:taskId` — soft delete de task (reporter + admins)
+- [x] `GET /projetos/:id/labels` — lista labels do projeto
+- [x] `POST /projetos/:id/labels` — cria label
+- [x] `PATCH /projetos/:id/labels/:labelId` — edita label
+- [x] `DELETE /projetos/:id/labels/:labelId` — remove label
+- [x] `GET /projetos/:id/tasks/:taskId/comments` — lista comentários (ordem decrescente)
+- [x] `POST /projetos/:id/tasks/:taskId/comments` — cria comentário
+- [x] `PATCH /projetos/:id/tasks/:taskId/comments/:commentId` — edita comentário (autor ou admin)
+- [x] `DELETE /projetos/:id/tasks/:taskId/comments/:commentId` — soft delete de comentário (autor ou admin)
+- [x] `GET /projetos/:id/tasks/:taskId/history` — histórico de alterações (ordem decrescente)
+- [x] Registro automático em `task_history` a cada PATCH de task (campo, valor anterior, valor novo)
 
 ### Frontend
-- [ ] Quadro Kanban com colunas e cards
-- [ ] Drag-and-drop de tasks entre colunas e dentro da mesma coluna
-- [ ] Drag-and-drop de reordenação de colunas
-- [ ] Modal/drawer de detalhes da task com edição inline
-- [ ] Formulário de criação de task
-- [ ] Indicadores visuais de prioridade e prazo expirado
-- [ ] Confirmação de exclusão de coluna com seleção de destino das tasks
+- [x] Quadro Kanban com colunas e cards (drag-and-drop via `@dnd-kit`)
+- [x] Drag-and-drop de tasks entre colunas e dentro da mesma coluna
+- [x] Drag-and-drop de reordenação de colunas
+- [x] Modal de detalhes da task com edição inline de todos os campos
+- [x] Formulário de criação de task (criação direta na coluna)
+- [x] Indicadores visuais de prioridade no card (cor do ponto)
+- [x] Indicador visual de prazo expirado no card
+- [x] Confirmação de exclusão de coluna com seleção de destino das tasks
+- [x] Multi-assignee: seletor com busca, avatares empilhados no card e no modal
+- [x] Gerenciador de labels do projeto (criar, editar cor/nome, excluir)
+- [x] Seleção de labels por task (chips coloridos)
+- [x] Seção de comentários no modal (aberta por padrão, colapsável)
+  - [x] Ordenados do mais novo ao mais antigo
+  - [x] Edição e exclusão inline (autor ou admin)
+  - [x] @menções: autocomplete ao digitar `@`, destaque visual nos comentários salvos
+  - [x] Links detectados e renderizados como âncoras clicáveis
+- [x] Seção de histórico de alterações (fechada por padrão, colapsável, ícone de relógio)
+  - [x] Ordenado do mais novo ao mais antigo
+  - [x] Exibe campo alterado, valor anterior (tachado) → valor novo
 
-**Entregável:** Quadro Kanban completo e operacional.
+**Entregável:** Quadro Kanban completo e operacional com colaboração via comentários e rastreabilidade via histórico.
 
 ---
 
@@ -248,16 +270,16 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 
 ## Resumo das Fases
 
-| Fase | Nome | RFs | Dependências |
+| Fase | Nome | RFs | Status |
 |---|---|---|---|
-| 0 | Setup e Infraestrutura | — | Nenhuma |
-| 1 | Autenticação | RF001, RF002, RF003 | Fase 0 |
-| 2 | Recuperação de Senha | RF004 | Fase 1 |
-| 3 | Superusuário + Empresas | RF005–RF011 | Fase 1 |
-| 4 | Empresa + Workspaces | RF012–RF019 | Fase 3 |
-| 5 | Workspace + Projetos | RF020–RF025 | Fase 4 |
-| 6 | Kanban + Tasks | RF026–RF039 | Fase 5 |
-| 7 | Perfil + Permissões finais | RF040–RF044 | Fase 6 |
+| 0 | Setup e Infraestrutura | — | ✅ Concluído (exceto Husky) |
+| 1 | Autenticação | RF001, RF002, RF003 | ✅ Concluído |
+| 2 | Recuperação de Senha | RF004 | ✅ Concluído |
+| 3 | Superusuário + Empresas | RF005–RF011 | ✅ Concluído |
+| 4 | Empresa + Workspaces | RF012–RF019 | ✅ Concluído |
+| 5 | Workspace + Projetos | RF020–RF025 | ✅ Concluído |
+| 6 | Kanban + Tasks | RF026–RF039, RF045–RF047 | ✅ Concluído |
+| 7 | Perfil + Permissões finais | RF040–RF044 | ⏳ Pendente |
 
 ---
 
