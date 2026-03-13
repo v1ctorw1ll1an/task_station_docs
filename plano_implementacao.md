@@ -2,6 +2,7 @@
 **Sistema de Gestão de Projetos e Tasks**
 Stack: Next.js · NestJS · PostgreSQL · Prisma · JWT
 
+> **v1.3 — 12/03/2026:** Fase 7 marcada como concluída — endpoints `/me/perfil` implementados; avatares com Gravatar nos cards do Kanban; anexos (RF048, RF049) adicionados à Fase 6.
 > **v1.2 — 11/03/2026:** Fase 6 marcada como concluída com as implementações reais; expansão de single-assignee para multi-assignee; adição de labels, comentários, histórico de alterações e @menções nos comentários.
 > **v1.1 — 22/02/2026:** Magic link de primeiro acesso substituiu senha temporária; painel de papéis por workspace; proteção admin-admin; superadmin pode revogar admin de empresa pela página do usuário.
 > **v1.0 — 20/02/2026:** Versão inicial.
@@ -242,6 +243,17 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] Seção de histórico de alterações (fechada por padrão, colapsável, ícone de relógio)
   - [x] Ordenado do mais novo ao mais antigo
   - [x] Exibe campo alterado, valor anterior (tachado) → valor novo
+- [x] Seção de anexos no modal da task — RF048
+  - [x] Upload de imagens (≤ 16 MB, otimizadas para WebP 1920 px via sharp) e vídeos (≤ 64 MB)
+  - [x] Limite: 3 imagens + 1 vídeo por task
+  - [x] Thumbnail automático: imagens WebP 400 px; vídeos frame@1s via ffmpeg
+  - [x] Listagem em grade com miniaturas; visualizador completo abre ao clicar
+  - [x] Remoção de anexo com soft delete (admin only)
+  - [x] Upload/remoção registrados em `task_history`
+- [x] Lixeira de tasks excluídas — busca e restauração de tasks com soft delete
+- [x] Ordenação e filtro por label nas colunas do Kanban (3-dot menu)
+- [x] Toggle de visibilidade da senha na tela de login
+- [x] Comentários ocultos por padrão (colapsável)
 
 **Entregável:** Quadro Kanban completo e operacional com colaboração via comentários e rastreabilidade via histórico.
 
@@ -249,20 +261,21 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 
 ## Fase 7 — Perfil e Permissões Finais
 > **Objetivo:** Usuário edita seu perfil. Sistema de permissões revisado e robusto.
-> **RFs cobertos:** RF040, RF041, RF042, RF043, RF044
+> **RFs cobertos:** RF040, RF041, RF042, RF043, RF044, RF049
 
 ### Backend
-- [ ] `GET /perfil` — retorna dados do usuário autenticado
-- [ ] `PATCH /perfil` — edita nome, telefone, foto
-- [ ] `PATCH /perfil/senha` — altera senha com confirmação da atual
+- [x] `GET /me/perfil` — retorna dados do usuário autenticado (id, name, email, phone, photoUrl, createdAt)
+- [x] `PATCH /me/perfil` — edita nome, telefone, photoUrl
+- [x] `PATCH /me/perfil/senha` — altera senha com confirmação da atual (bcrypt.compare + bcrypt.hash)
 - [ ] Revisão completa de todos os guards e regras de membership
 - [ ] Verificação de `is_active` da empresa pai ao autenticar membros
 - [ ] Garantia de que `created_at`, `updated_at`, `created_by` são preenchidos automaticamente via Prisma middleware
 
 ### Frontend
-- [ ] Página de perfil do usuário
-- [ ] Formulário de edição de dados pessoais
-- [ ] Formulário de alteração de senha
+- [x] Página de perfil do usuário (`/perfil`)
+- [x] Formulário de edição de dados pessoais (nome, telefone, photoUrl)
+- [x] Formulário de alteração de senha (senha atual + nova senha + confirmação)
+- [x] Avatares com Gravatar nos cards do Kanban — RF049 (photoUrl → Gravatar SHA-256 → iniciais)
 
 **Entregável:** Sistema completo, revisado e pronto para testes de aceitação.
 
@@ -279,7 +292,7 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 | 4 | Empresa + Workspaces | RF012–RF019 | ✅ Concluído |
 | 5 | Workspace + Projetos | RF020–RF025 | ✅ Concluído |
 | 6 | Kanban + Tasks | RF026–RF039, RF045–RF047 | ✅ Concluído |
-| 7 | Perfil + Permissões finais | RF040–RF044 | ⏳ Pendente |
+| 7 | Perfil + Permissões finais | RF040–RF044, RF049 | 🔄 Parcialmente concluído |
 
 ---
 

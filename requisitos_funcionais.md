@@ -1,7 +1,8 @@
 # Especificação de Requisitos Funcionais
 **Sistema de Gestão de Projetos e Tasks**
-Versão 1.2 — 11/03/2026 | Total de requisitos: 47
+Versão 1.3 — 12/03/2026 | Total de requisitos: 49
 
+> **v1.3 — 12/03/2026:** RF048 (Anexos em Tasks) e RF049 (Avatares com Gravatar) adicionados; RF042 atualizado com regra de avatar Gravatar; endpoints `/me/perfil` implementados na Fase 7.
 > **v1.2 — 11/03/2026:** RF032, RF033, RF036, RF039 atualizados para refletir multi-assignee implementado; RF045 (Labels), RF046 (Comentários), RF047 (Histórico de Alterações de Task) adicionados.
 > **v1.1 — 22/02/2026:** RF002, RF006, RF011, RF018, RF019 atualizados com magic link, papéis explícitos por workspace, proteção admin-admin e revogação de admin pelo superadmin.
 > **v1.0 — 20/02/2026:** Versão inicial.
@@ -675,6 +676,27 @@ Versão 1.2 — 11/03/2026 | Total de requisitos: 47
 
 ---
 
+### RF048 — Anexos em Tasks (Imagens e Vídeos) `● Média`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Tasks |
+| **Ator** | Membros do Projeto |
+| **Descrição** | Os membros devem poder anexar imagens e vídeos a uma task, visualizá-los em miniatura e removê-los. |
+
+**Regras de Negócio:**
+1. Tipos aceitos: imagens (`image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/avif`, `image/heic`, `image/heif`) e vídeos (`video/mp4`, `video/webm`, `video/quicktime`, `video/x-msvideo`, `video/x-matroska`).
+2. Limites de tamanho: imagens até 16 MB, vídeos até 64 MB.
+3. Limite de quantidade por task: máximo 3 imagens e 1 vídeo.
+4. Imagens são otimizadas no upload: redimensionadas para no máximo 1920×1920 px, convertidas para WebP (qualidade 85), com auto-rotação baseada em EXIF.
+5. Thumbnails são gerados automaticamente: imagens em WebP 400×400 (qualidade 75); vídeos com frame extraído no segundo 1 (best-effort — falha não impede o upload).
+6. Arquivos são armazenados localmente em `uploads/attachments/{taskId}/`; thumbnails em `uploads/attachments/{taskId}/thumbs/`.
+7. A listagem de anexos exibe apenas miniaturas; o arquivo completo é carregado somente ao abrir o visualizador.
+8. Apenas admins podem remover anexos.
+9. Upload e remoção de anexo são registrados no histórico da task (`attachment_added` / `attachment_removed`).
+
+---
+
 ## Módulo: Labels
 
 ### RF045 — Gerenciamento de Labels do Projeto `● Média`
@@ -779,10 +801,28 @@ Versão 1.2 — 11/03/2026 | Total de requisitos: 47
 | **Descrição** | O usuário deve poder editar seus próprios dados de perfil. |
 
 **Regras de Negócio:**
-1. Campos editáveis: nome, telefone, foto de perfil.
+1. Campos editáveis: nome, telefone, foto de perfil (URL externa).
 2. O email não deve ser editável pelo próprio usuário (alteração de email exige fluxo específico).
 3. A senha pode ser alterada mediante confirmação da senha atual.
 4. Alterações devem atualizar o campo `updated_at`.
+5. O avatar exibido no quadro Kanban segue a ordem de prioridade: (1) `photoUrl` cadastrado pelo usuário, (2) imagem Gravatar associada ao email via SHA-256, (3) iniciais do nome como fallback estático.
+
+---
+
+### RF049 — Avatares com Gravatar `● Baixa`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Perfil |
+| **Ator** | Sistema |
+| **Descrição** | O sistema deve exibir automaticamente a imagem Gravatar do usuário como avatar padrão nos cards de task, quando disponível. |
+
+**Regras de Negócio:**
+1. O avatar do assignee no card do Kanban prioriza: `photoUrl` (se cadastrado) → Gravatar (hash SHA-256 do email) → iniciais do nome.
+2. O Gravatar é requisitado com parâmetro `d=404` para detectar ausência de imagem cadastrada.
+3. Em caso de erro ao carregar a imagem (404 ou falha de rede), o sistema exibe as iniciais do nome.
+4. O hash SHA-256 do email é calculado no cliente via `crypto.subtle` (Web Crypto API), sem envio de email ao servidor externo.
+5. O cálculo é feito uma vez por componente de avatar e cacheado no estado local.
 
 ---
 
