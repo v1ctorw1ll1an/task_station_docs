@@ -2,6 +2,7 @@
 **Sistema de Gestão de Projetos e Tasks**
 Stack: Next.js · NestJS · PostgreSQL · Prisma · JWT
 
+> **v1.4 — 17/03/2026:** Fix de sidebar — nome do projeto agora atualiza reativamente via `CustomEvent('projeto:updated')` sem reload.
 > **v1.3 — 12/03/2026:** Fase 7 marcada como concluída — endpoints `/me/perfil` implementados; avatares com Gravatar nos cards do Kanban; anexos (RF048, RF049) adicionados à Fase 6.
 > **v1.2 — 11/03/2026:** Fase 6 marcada como concluída com as implementações reais; expansão de single-assignee para multi-assignee; adição de labels, comentários, histórico de alterações e @menções nos comentários.
 > **v1.1 — 22/02/2026:** Magic link de primeiro acesso substituiu senha temporária; painel de papéis por workspace; proteção admin-admin; superadmin pode revogar admin de empresa pela página do usuário.
@@ -185,6 +186,7 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] Listagem de projetos com gestão completa (admin) ou view somente-leitura (membro)
 - [x] Formulário de criação de projeto (somente admins)
 - [x] Edição, inativação e exclusão de projetos (somente admins)
+- [x] Sidebar atualiza nome do projeto in-place via `CustomEvent('projeto:updated')` após edição — sem reload de página (fix v0.1.0-alpha.2)
 - [x] Gestão de membros do workspace (somente admins)
 - [x] Sidebar do workspace — "Membros" visível apenas para admins
 - [x] `/empresa/:companyId/workspaces` — company admins: gestão completa; outros: lista de seus workspaces via GET /me/workspaces

@@ -1,7 +1,8 @@
 # Especificação de Requisitos Funcionais
 **Sistema de Gestão de Projetos e Tasks**
-Versão 1.3 — 12/03/2026 | Total de requisitos: 49
+Versão 1.4 — 17/03/2026 | Total de requisitos: 49
 
+> **v1.4 — 17/03/2026:** RF028 atualizado com nota sobre atualização reativa da sidebar via CustomEvent `projeto:updated`.
 > **v1.3 — 12/03/2026:** RF048 (Anexos em Tasks) e RF049 (Avatares com Gravatar) adicionados; RF042 atualizado com regra de avatar Gravatar; endpoints `/me/perfil` implementados na Fase 7.
 > **v1.2 — 11/03/2026:** RF032, RF033, RF036, RF039 atualizados para refletir multi-assignee implementado; RF045 (Labels), RF046 (Comentários), RF047 (Histórico de Alterações de Task) adicionados.
 > **v1.1 — 22/02/2026:** RF002, RF006, RF011, RF018, RF019 atualizados com magic link, papéis explícitos por workspace, proteção admin-admin e revogação de admin pelo superadmin.
@@ -477,6 +478,7 @@ Versão 1.3 — 12/03/2026 | Total de requisitos: 49
 ---
 
 ### RF028 — Edição de Projeto `● Alta`
+> **v1.4:** Sidebar atualiza o nome do projeto reativamente via `CustomEvent('projeto:updated')`, sem necessidade de reload.
 
 | Campo | Detalhe |
 |---|---|
@@ -488,6 +490,7 @@ Versão 1.3 — 12/03/2026 | Total de requisitos: 49
 1. Campos editáveis: nome, descrição, status.
 2. Alterações devem atualizar o campo `updated_at`.
 3. O admin de workspace só pode editar projetos do seu workspace.
+4. Após salvar com sucesso, o frontend despacha `CustomEvent('projeto:updated', { detail: { projectId, name, description } })` em `window`; o componente de sidebar (`WorkspaceNavItem`) escuta o evento e atualiza o nome do projeto in-place, sem chamada de rede adicional.
 
 ---
 
