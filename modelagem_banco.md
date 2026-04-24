@@ -1,9 +1,10 @@
 # Modelagem do Banco de Dados
 **Sistema de Gestão de Projetos e Tasks**
-Versão 2.0 — 17/03/2026
+Versão 3.0 — 19/03/2026
 
 ---
 
+> **v3.0 — 19/03/2026:** Tabelas `user_workspace_orders` e `user_project_orders` adicionadas (ordenação personalizada da sidebar por usuário); colunas `icon`, `icon_color`, `task_counter` adicionadas a `projects`; coluna `task_number` adicionada a `tasks` (numeração automática por projeto); coluna `notification_id` removida de `tasks` (nunca persistida no schema — removida via migration); constraints de CASCADE em `task_history` corrigidas.
 > **v2.0 — 17/03/2026:** Tabelas `task_assignees`, `labels`, `task_labels`, `task_history`, `task_comments`, `task_attachments`, `project_restrictions`, `notifications`, `notification_preferences` adicionadas; campo `assignee_id` removido de `tasks` (substituído por multi-assignee via `task_assignees`); ENUMs `token_type` e `notification_type` adicionados; `project_admin` adicionado ao `membership_role`.
 > **v1.0 — 20/02/2026:** Versão inicial.
 
@@ -133,6 +134,9 @@ Toda regra de permissão é resolvida pela tabela `memberships`, que relaciona u
 | `name` | VARCHAR(150) | NOT NULL | Nome do projeto |
 | `description` | TEXT | | Descrição opcional |
 | `is_active` | BOOLEAN | NOT NULL, DEFAULT true | false = tasks não podem ser criadas/editadas |
+| `icon` | VARCHAR(50) | | Nome do ícone Lucide (ex: `code-2`, `rocket`) |
+| `icon_color` | VARCHAR(7) | | Cor do ícone em hex (#RRGGBB) |
+| `task_counter` | INTEGER | NOT NULL, DEFAULT 0 | Contador atômico para numeração de tasks |
 | `created_by` | UUID | FK → users.id, NOT NULL | Quem criou o projeto |
 | `deleted_at` | TIMESTAMPTZ | | Soft delete |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | Criação automática |
@@ -166,6 +170,7 @@ Toda regra de permissão é resolvida pela tabela `memberships`, que relaciona u
 | `id` | UUID | PK | Identificador único da task |
 | `project_id` | UUID | FK → projects.id, NOT NULL | Projeto ao qual pertence |
 | `column_id` | UUID | FK → columns.id, NOT NULL | Coluna atual no quadro |
+| `task_number` | INTEGER | UNIQUE por projeto | Número sequencial da task dentro do projeto (ex: `BE-42`) |
 | `title` | VARCHAR(255) | NOT NULL | Título da task |
 | `description` | TEXT | | Detalhamento opcional (suporta markdown) |
 | `priority` | ENUM | NOT NULL, DEFAULT medium | `task_priority` |
@@ -179,6 +184,8 @@ Toda regra de permissão é resolvida pela tabela `memberships`, que relaciona u
 | `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | Atualização automática |
 
 > **Nota:** `assignee_id` foi removido no v1.2. Responsáveis são gerenciados via tabela junction `task_assignees` para suporte a múltiplos responsáveis por task.
+
+> **Nota:** `task_number` é atribuído atomicamente via incremento de `projects.task_counter` na criação da task. `UNIQUE (project_id, task_number)` garante unicidade. O prefixo exibido (ex: `BE-42`) é derivado do nome do projeto no frontend.
 
 > **Nota:** `CHECK (due_date >= start_date)` deve ser aplicado no banco quando ambas as datas estão preenchidas.
 
@@ -365,6 +372,34 @@ Toda regra de permissão é resolvida pela tabela `memberships`, que relaciona u
 
 ---
 
+### `user_workspace_orders`
+> Posição personalizada dos workspaces na sidebar, por usuário. Permite drag-and-drop de reordenação persistido individualmente.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `user_id` | UUID | PK, FK → users.id | Usuário dono da ordenação |
+| `company_id` | UUID | NOT NULL, IDX | Empresa de contexto (para filtrar por empresa na sidebar) |
+| `workspace_id` | UUID | PK, FK → workspaces.id | Workspace sendo posicionado |
+| `position` | INTEGER | NOT NULL | Posição na sidebar (menor = mais acima) |
+
+> **Nota:** Chave primária composta `(user_id, workspace_id)`. Índice em `(user_id, company_id)` para busca eficiente ao carregar a sidebar.
+
+---
+
+### `user_project_orders`
+> Posição personalizada dos projetos na sidebar, por usuário e workspace. Permite drag-and-drop de reordenação persistido individualmente.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `user_id` | UUID | PK, FK → users.id | Usuário dono da ordenação |
+| `workspace_id` | UUID | NOT NULL, FK → workspaces.id, IDX | Workspace de contexto |
+| `project_id` | UUID | PK, FK → projects.id | Projeto sendo posicionado |
+| `position` | INTEGER | NOT NULL | Posição na sidebar dentro do workspace |
+
+> **Nota:** Chave primária composta `(user_id, project_id)`. Índice em `(user_id, workspace_id)` para busca eficiente ao expandir um workspace na sidebar.
+
+---
+
 ## 4. Mapa de Relacionamentos
 
 | Tabela Origem | Coluna | Tabela Destino | Coluna | Tipo | Comportamento |
@@ -399,6 +434,11 @@ Toda regra de permissão é resolvida pela tabela `memberships`, que relaciona u
 | `notifications` | `project_id` | `projects` | `id` | N:1 | SET NULL |
 | `notifications` | `actor_id` | `users` | `id` | N:1 | SET NULL |
 | `notification_preferences` | `user_id` | `users` | `id` | 1:1 | CASCADE |
+| `user_workspace_orders` | `user_id` | `users` | `id` | N:1 | RESTRICT |
+| `user_workspace_orders` | `workspace_id` | `workspaces` | `id` | N:1 | RESTRICT |
+| `user_project_orders` | `user_id` | `users` | `id` | N:1 | RESTRICT |
+| `user_project_orders` | `workspace_id` | `workspaces` | `id` | N:1 | RESTRICT |
+| `user_project_orders` | `project_id` | `projects` | `id` | N:1 | RESTRICT |
 
 ---
 
@@ -450,6 +490,9 @@ erDiagram
         VARCHAR name
         TEXT description
         BOOLEAN is_active
+        VARCHAR icon
+        VARCHAR icon_color
+        INTEGER task_counter
         UUID created_by FK
         TIMESTAMPTZ deleted_at
         TIMESTAMPTZ created_at
@@ -471,6 +514,7 @@ erDiagram
         UUID id PK
         UUID project_id FK
         UUID column_id FK
+        INTEGER task_number
         VARCHAR title
         TEXT description
         ENUM priority
@@ -565,6 +609,20 @@ erDiagram
         TIMESTAMPTZ created_at
     }
 
+    user_workspace_orders {
+        UUID user_id FK
+        UUID company_id
+        UUID workspace_id FK
+        INTEGER position
+    }
+
+    user_project_orders {
+        UUID user_id FK
+        UUID workspace_id FK
+        UUID project_id FK
+        INTEGER position
+    }
+
     users ||--o{ companies : "created_by"
     users ||--o{ workspaces : "created_by"
     users ||--o{ projects : "created_by"
@@ -590,6 +648,11 @@ erDiagram
     tasks ||--o{ task_comments : "task_id"
     tasks ||--o{ task_attachments : "task_id"
     labels ||--o{ task_labels : "label_id"
+    users ||--o{ user_workspace_orders : "user_id"
+    workspaces ||--o{ user_workspace_orders : "workspace_id"
+    users ||--o{ user_project_orders : "user_id"
+    workspaces ||--o{ user_project_orders : "workspace_id"
+    projects ||--o{ user_project_orders : "project_id"
 ```
 
 ---
@@ -639,3 +702,8 @@ erDiagram
 | `notifications (recipient_id, is_read, created_at)` | BTREE composto | Listar notificações não lidas de um usuário |
 | `notifications (recipient_id, created_at)` | BTREE composto | Listar todas as notificações de um usuário por data |
 | `notification_preferences (user_id)` | UNIQUE | Um registro de preferências por usuário |
+| `tasks (project_id, task_number)` | UNIQUE | Unicidade do número da task por projeto |
+| `user_workspace_orders (user_id, workspace_id)` | UNIQUE (PK) | Chave primária da ordenação |
+| `user_workspace_orders (user_id, company_id)` | BTREE composto | Buscar ordenação da sidebar por empresa |
+| `user_project_orders (user_id, project_id)` | UNIQUE (PK) | Chave primária da ordenação |
+| `user_project_orders (user_id, workspace_id)` | BTREE composto | Buscar ordenação dos projetos de um workspace |

@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  title: Task Station API
+  title: TaskDY API
   description: API de gestão de projetos e tasks
   version: '1.0'
   contact: {}

@@ -2,6 +2,7 @@
 **Sistema de Gestão de Projetos e Tasks**
 Stack: Next.js · NestJS · PostgreSQL · Prisma · JWT
 
+> **v1.5 — 19/03/2026:** Fases 3, 5, 6, 7 e 8 atualizadas — toggle-superuser, broadcast/notificações, ícone+cor de projeto, numeração de tasks, visão geral do workspace, dashboard pessoal, board filter (assignee, labels, reporter), sort multi-critério, sidebar ordering drag-and-drop, mover projeto entre workspaces, foto de perfil, kanban gateway (WebSocket).
 > **v1.4 — 17/03/2026:** Fix de sidebar — nome do projeto agora atualiza reativamente via `CustomEvent('projeto:updated')` sem reload.
 > **v1.3 — 12/03/2026:** Fase 7 marcada como concluída — endpoints `/me/perfil` implementados; avatares com Gravatar nos cards do Kanban; anexos (RF048, RF049) adicionados à Fase 6.
 > **v1.2 — 11/03/2026:** Fase 6 marcada como concluída com as implementações reais; expansão de single-assignee para multi-assignee; adição de labels, comentários, histórico de alterações e @menções nos comentários.
@@ -97,6 +98,8 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] `GET /superadmin/usuarios/:id/magic-link` — obtém (ou regenera) magic link ativo
 - [x] `GET /auth/first-access?token=` — valida token de primeiro acesso (público)
 - [x] `POST /auth/first-access?token=` — consome token, define nome + senha, retorna JWT (público)
+- [x] `PATCH /superadmin/usuarios/:id/toggle-superuser` — promove ou rebaixa usuário para/de superusuário
+- [x] `POST /superadmin/broadcast` — envia comunicado global a todos os usuários da plataforma
 
 ### Frontend
 - [x] Layout do painel do superusuário (sidebar + área de conteúdo)
@@ -109,6 +112,8 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] `UserCredentialActions` — botões "Copiar magic link", "Gerar novo magic link" / "Invalidar credenciais"
 - [x] `UserCompanyMemberships` — lista de empresas com botão "Revogar admin" (ShieldOff) por membership admin
 - [x] `/first-access?token=` — página pública para magic link; solicita nome + senha no primeiro acesso
+- [x] Toggle de superusuário na página de detalhe do usuário (botão com confirmation dialog)
+- [x] `/superadmin/broadcast` — página para envio de comunicados globais
 
 **Entregável:** Superusuário opera o ciclo completo de empresas pelo painel.
 
@@ -180,6 +185,9 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] `DELETE /workspace/:id/admins/:userId` — revoga papel
 - [x] `GET /me/workspaces` — lista workspaces ativos do usuário autenticado (qualquer role)
 - [x] `GET /me/empresas` corrigido — retorna role real de workspace members (member/workspace_admin)
+- [x] `GET /workspace/:id/visao-geral` — visão geral do workspace: todos os projetos com tasks agrupadas por coluna (filtros: assignee, labels)
+- [x] `GET /workspace/:id/task/:taskRef` — resolve referência de task (ex: `BE-42`) para taskId e projectId
+- [x] `PATCH /workspace/:id/projetos/:projectId/mover` — move projeto para outro workspace da mesma empresa (requer workspace_admin em ambos)
 
 ### Frontend
 - [x] Layout do painel do workspace — detecta isAdmin via GET /membros; redireciona para /dashboard se sem acesso
@@ -191,6 +199,9 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] Sidebar do workspace — "Membros" visível apenas para admins
 - [x] `/empresa/:companyId/workspaces` — company admins: gestão completa; outros: lista de seus workspaces via GET /me/workspaces
 - [x] `WorkspacesMemberView` — componente de lista de workspaces para membros/workspace_admins com botão "Entrar"
+- [x] `/workspace/[workspaceId]/visao-geral` — tela de visão geral do workspace com filtros de assignee e label; link de deep-link para task via `taskRef`
+- [x] `/empresa/[companyId]/comunicado` — tela de envio de comunicado (broadcast) para membros de workspaces da empresa
+- [x] Drag-and-drop de mover projeto entre workspaces na sidebar
 
 **Entregável:** Admin de workspace cria projetos e gerencia seu time; membros vêem os projetos ativos do seu workspace.
 
@@ -200,7 +211,7 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 
 ## Fase 6 — Kanban e Tasks
 > **Objetivo:** Membros visualizam e operam o quadro Kanban com todas as funcionalidades de task.
-> **RFs cobertos:** RF026, RF027, RF028, RF029, RF030, RF032, RF033, RF034, RF035, RF036, RF037, RF038, RF039, RF045, RF046, RF047
+> **RFs cobertos:** RF026, RF027, RF028, RF029, RF030, RF032, RF033, RF034, RF035, RF036, RF037, RF038, RF039, RF045, RF046, RF047, RF050, RF051, RF054, RF055
 
 > **Nota v1.2:** O RF031 (colaboradores externos de projeto) não foi implementado nesta fase. O assignee foi expandido de single para multi-assignee via tabela junction `task_assignees`, divergindo do design original do MVP.
 
@@ -214,6 +225,11 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] `PATCH /projetos/:id/tasks/:taskId` — edição de task (todos os campos + assignees + labels)
 - [x] `PATCH /projetos/:id/tasks/:taskId/move` — move task de coluna ou reordena dentro da coluna
 - [x] `DELETE /projetos/:id/tasks/:taskId` — soft delete de task (reporter + admins)
+- [x] `GET /projetos/:id/tasks/deleted` — lista tasks com soft delete (lixeira)
+- [x] `PATCH /projetos/:id/tasks/:taskId/restore` — restaura task da lixeira
+- [x] `PATCH /projetos/:id/tasks/:taskId/assign` — atribui ou remove responsável individual da task
+- [x] `GET /projetos/:id/membros` — lista membros do workspace para seleção de responsável
+- [x] `GET /projetos/:id/last-modified` — timestamp da última alteração (polling de sync)
 - [x] `GET /projetos/:id/labels` — lista labels do projeto
 - [x] `POST /projetos/:id/labels` — cria label
 - [x] `PATCH /projetos/:id/labels/:labelId` — edita label
@@ -222,8 +238,14 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] `POST /projetos/:id/tasks/:taskId/comments` — cria comentário
 - [x] `PATCH /projetos/:id/tasks/:taskId/comments/:commentId` — edita comentário (autor ou admin)
 - [x] `DELETE /projetos/:id/tasks/:taskId/comments/:commentId` — soft delete de comentário (autor ou admin)
+- [x] `GET /projetos/:id/tasks/:taskId/attachments` — lista anexos da task
+- [x] `POST /projetos/:id/tasks/:taskId/attachments` — upload de anexo (imagem ou vídeo)
+- [x] `GET /projetos/:id/tasks/:taskId/attachments/:id/thumbnail` — serve thumbnail do anexo
+- [x] `GET /projetos/:id/tasks/:taskId/attachments/:id/file` — serve arquivo completo do anexo
+- [x] `DELETE /projetos/:id/tasks/:taskId/attachments/:id` — remove anexo (soft delete)
 - [x] `GET /projetos/:id/tasks/:taskId/history` — histórico de alterações (ordem decrescente)
 - [x] Registro automático em `task_history` a cada PATCH de task (campo, valor anterior, valor novo)
+- [x] `KanbanGateway` (WebSocket via Socket.IO) — emite eventos de atualização em tempo real para clientes conectados ao projeto
 
 ### Frontend
 - [x] Quadro Kanban com colunas e cards (drag-and-drop via `@dnd-kit`)
@@ -256,6 +278,10 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] Ordenação e filtro por label nas colunas do Kanban (3-dot menu)
 - [x] Toggle de visibilidade da senha na tela de login
 - [x] Comentários ocultos por padrão (colapsável)
+- [x] Ícone e cor personalizados por projeto — picker com 50+ ícones Lucide; exibido na sidebar e no header do projeto
+- [x] Board filter global no Kanban — filtro por assignee, labels e reporter aplicado a todas as colunas simultaneamente; chips de filtros ativos com limpeza individual e "Limpar todos"
+- [x] Ordenação multi-critério nas colunas do Kanban — eixos independentes de `dueDate` e `priority`
+- [x] Numeração automática de tasks (`#N`) com prefixo derivado do nome do projeto (ex: `BE-42`) — exibida nos cards e no modal de detalhes
 
 **Entregável:** Quadro Kanban completo e operacional com colaboração via comentários e rastreabilidade via histórico.
 
@@ -269,6 +295,8 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 - [x] `GET /me/perfil` — retorna dados do usuário autenticado (id, name, email, phone, photoUrl, createdAt)
 - [x] `PATCH /me/perfil` — edita nome, telefone, photoUrl
 - [x] `PATCH /me/perfil/senha` — altera senha com confirmação da atual (bcrypt.compare + bcrypt.hash)
+- [x] `POST /me/perfil/foto` — upload de foto de perfil (otimizada para WebP via sharp; salva em `uploads/avatars/`)
+- [x] `GET /me/foto/:userId` — serve foto de perfil (rota pública, cache 1h)
 - [ ] Revisão completa de todos os guards e regras de membership
 - [ ] Verificação de `is_active` da empresa pai ao autenticar membros
 - [ ] Garantia de que `created_at`, `updated_at`, `created_by` são preenchidos automaticamente via Prisma middleware
@@ -276,10 +304,43 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 ### Frontend
 - [x] Página de perfil do usuário (`/perfil`)
 - [x] Formulário de edição de dados pessoais (nome, telefone, photoUrl)
+- [x] Upload de foto de perfil com preview imediato
 - [x] Formulário de alteração de senha (senha atual + nova senha + confirmação)
 - [x] Avatares com Gravatar nos cards do Kanban — RF049 (photoUrl → Gravatar SHA-256 → iniciais)
+- [x] Alternância de tema dark/light com `next-themes`
+- [x] Página `/sobre` com informações da versão
 
 **Entregável:** Sistema completo, revisado e pronto para testes de aceitação.
+
+---
+
+## Fase 8 — Notificações, Dashboard e Features Avançadas
+> **Objetivo:** Sistema de notificações em tempo real, dashboard pessoal com tasks do usuário e ordenação personalizada da sidebar.
+> **RFs cobertos:** RF052, RF053, RF056, RF057, RF058, RF059
+
+### Backend
+- [x] `GET /me/tasks` — tarefas atribuídas ao usuário cross-workspace (filtros: hoje/amanhã/esta semana/atrasadas/personalizado)
+- [x] `GET /me/sidebar-order/:companyId` — retorna ordem de workspaces e projetos na sidebar do usuário
+- [x] `PUT /me/workspace-order` — salva ordem dos workspaces na sidebar (upsert em `user_workspace_orders`)
+- [x] `PUT /me/project-order` — salva ordem dos projetos na sidebar (upsert em `user_project_orders`)
+- [x] `GET /me/notificacoes` — lista notificações do usuário (paginação, filtro unreadOnly)
+- [x] `GET /me/notificacoes/unread-count` — contagem de notificações não lidas
+- [x] `PATCH /me/notificacoes/read-all` — marca todas as notificações como lidas
+- [x] `PATCH /me/notificacoes/:id/read` — marca notificação específica como lida
+- [x] `DELETE /me/notificacoes` — limpa todas as notificações do usuário
+- [x] `DELETE /me/notificacoes/:id` — remove notificação específica
+- [x] `GET /me/notificacoes/preferencias` — retorna preferências de notificação
+- [x] `PATCH /me/notificacoes/preferencias` — atualiza preferências de notificação
+- [x] `NotificacaoGateway` (WebSocket) — push de notificações em tempo real via Socket.IO
+- [x] `POST /empresa/:companyId/comunicado` — envia broadcast para membros dos workspaces da empresa
+
+### Frontend
+- [x] Dashboard pessoal (`/empresa/:companyId/inicio`) — saudação por hora do dia, tasks a vencer com filtros, feed de notificações recentes
+- [x] `/perfil/preferencias-notificacoes` — página de preferências de notificação
+- [x] Sidebar com ordenação drag-and-drop de workspaces e projetos (persistido por usuário)
+- [x] Drag-and-drop de mover projeto para outro workspace na sidebar
+
+**Entregável:** Usuários recebem notificações em tempo real, gerenciam sua fila de tasks a partir do dashboard pessoal e personalizam a ordem da sidebar.
 
 ---
 
@@ -292,9 +353,10 @@ Cada fase entrega algo **funcional e testável de ponta a ponta** — do banco a
 | 2 | Recuperação de Senha | RF004 | ✅ Concluído |
 | 3 | Superusuário + Empresas | RF005–RF011 | ✅ Concluído |
 | 4 | Empresa + Workspaces | RF012–RF019 | ✅ Concluído |
-| 5 | Workspace + Projetos | RF020–RF025 | ✅ Concluído |
-| 6 | Kanban + Tasks | RF026–RF039, RF045–RF047 | ✅ Concluído |
+| 5 | Workspace + Projetos | RF020–RF025, RF057 | ✅ Concluído |
+| 6 | Kanban + Tasks | RF026–RF039, RF045–RF047, RF050, RF051, RF054, RF055 | ✅ Concluído |
 | 7 | Perfil + Permissões finais | RF040–RF044, RF049 | 🔄 Parcialmente concluído |
+| 8 | Notificações + Dashboard + Features avançadas | RF052, RF053, RF056, RF057, RF058, RF059 | ✅ Concluído |
 
 ---
 

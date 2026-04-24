@@ -1,7 +1,8 @@
 # Especificação de Requisitos Funcionais
 **Sistema de Gestão de Projetos e Tasks**
-Versão 1.4 — 17/03/2026 | Total de requisitos: 49
+Versão 1.5 — 19/03/2026 | Total de requisitos: 59
 
+> **v1.5 — 19/03/2026:** RF050 (Ícone e Cor por Projeto), RF051 (Numeração Automática de Tasks), RF052 (Visão Geral do Workspace), RF053 (Dashboard Pessoal), RF054 (Board Filter do Kanban), RF055 (Ordenação Multi-Critério), RF056 (Ordenação da Sidebar), RF057 (Mover Projeto entre Workspaces), RF058 (Sistema de Notificações), RF059 (Broadcast de Comunicados) adicionados; RF011 atualizado com toggle-superuser.
 > **v1.4 — 17/03/2026:** RF028 atualizado com nota sobre atualização reativa da sidebar via CustomEvent `projeto:updated`.
 > **v1.3 — 12/03/2026:** RF048 (Anexos em Tasks) e RF049 (Avatares com Gravatar) adicionados; RF042 atualizado com regra de avatar Gravatar; endpoints `/me/perfil` implementados na Fase 7.
 > **v1.2 — 11/03/2026:** RF032, RF033, RF036, RF039 atualizados para refletir multi-assignee implementado; RF045 (Labels), RF046 (Comentários), RF047 (Histórico de Alterações de Task) adicionados.
@@ -181,6 +182,7 @@ Versão 1.4 — 17/03/2026 | Total de requisitos: 49
 ---
 
 ### RF011 — Listagem e Gerenciamento de Usuários pelo Superusuário `● Alta`
+> **v1.5:** Toggle-superuser adicionado — superusuário pode promover ou rebaixar qualquer usuário para/de superusuário.
 > **v1.1:** Adicionados magic link, invalidação de credenciais e revogação de admin de empresa.
 
 | Campo | Detalhe |
@@ -197,6 +199,7 @@ Versão 1.4 — 17/03/2026 | Total de requisitos: 49
 5. O superusuário pode invalidar as credenciais de qualquer usuário: seta `must_reset_password = true` e gera novo magic link, exibido na tela para cópia.
 6. O superusuário pode obter (ou regenerar) o magic link ativo de qualquer usuário com `must_reset_password = true`.
 7. O superusuário pode revogar o papel de admin de empresa de qualquer usuário diretamente pela página de detalhe do usuário, com confirmação. A operação garante que a empresa mantenha ao menos um admin ativo.
+8. O superusuário pode promover qualquer usuário a superusuário ou revogar esse status, com exceção de si mesmo. A operação exige confirmação explícita.
 
 ---
 
@@ -860,3 +863,185 @@ Versão 1.4 — 17/03/2026 | Total de requisitos: 49
 2. Para entidades criadas pelo superusuário, `created_by` deve registrar o id do superusuário.
 3. O campo `created_by` não deve ser alterável após a criação.
 4. O campo deve existir nas tabelas: `companies`, `workspaces`, `projects`, `tasks`.
+
+---
+
+## Módulo: Projeto (Avançado)
+
+### RF050 — Ícone e Cor por Projeto `● Baixa`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Projeto |
+| **Ator** | Admin de Workspace, Admin de Empresa |
+| **Descrição** | O admin deve poder definir um ícone e uma cor personalizados para cada projeto, exibidos na sidebar e no header do quadro Kanban. |
+
+**Regras de Negócio:**
+1. O ícone é selecionado de uma lista de 50+ ícones Lucide; o nome do ícone (ex: `code-2`) é persistido em `projects.icon`.
+2. A cor do ícone é selecionada via color picker e persistida em `projects.icon_color` (hex #RRGGBB).
+3. Ambos os campos são opcionais; caso não definidos, exibe um ícone padrão em cor neutra.
+4. Após salvar, a sidebar atualiza o ícone/cor in-place via `CustomEvent('projeto:updated', { detail: { projectId, icon, iconColor } })`.
+
+---
+
+### RF051 — Numeração Automática de Tasks `● Baixa`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Tasks |
+| **Ator** | Sistema |
+| **Descrição** | O sistema deve atribuir automaticamente um número sequencial a cada task criada dentro de um projeto, exibindo-o como referência textual nos cards e no modal de detalhes. |
+
+**Regras de Negócio:**
+1. Cada projeto possui um contador atômico (`task_counter`) incrementado a cada nova task criada.
+2. O número é único por projeto e imutável após a criação (`UNIQUE (project_id, task_number)`).
+3. O prefixo é derivado do nome do projeto no frontend (ex: projeto "Backend" → prefixo `BE`; exibe `BE-42`).
+4. O `task_number` é exibido no card do Kanban, no modal de detalhes e na visão geral do workspace.
+5. Tasks deletadas e restauradas mantêm o `task_number` original.
+
+---
+
+## Módulo: Workspace (Avançado)
+
+### RF052 — Visão Geral do Workspace `● Média`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Workspace |
+| **Ator** | Membros do Workspace |
+| **Descrição** | Os membros devem poder visualizar uma tela consolidada com todos os projetos do workspace, suas colunas e tasks, com filtros globais. |
+
+**Regras de Negócio:**
+1. A tela agrupa todos os projetos ativos do workspace, exibindo as tasks de cada projeto agrupadas por coluna.
+2. Filtros globais disponíveis: assignee e labels — aplicados a todos os projetos simultaneamente.
+3. Cada task exibe o prefixo de referência (ex: `BE-42`); ao clicar, o sistema resolve a referência (`GET /workspace/:id/task/:taskRef`) e abre o modal de detalhes no projeto correto.
+4. A tela respeita as mesmas regras de visibilidade de projetos que o Kanban (projetos ativos para membros, inativos visíveis apenas para admins).
+
+---
+
+## Módulo: Dashboard
+
+### RF053 — Dashboard Pessoal `● Média`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Dashboard |
+| **Ator** | Todos os usuários autenticados |
+| **Descrição** | O usuário deve ter uma tela de início personalizada com saudação contextual, tasks a vencer e feed de notificações recentes. |
+
+**Regras de Negócio:**
+1. A saudação varia conforme a hora do dia (bom dia / boa tarde / boa noite).
+2. A seção de tasks exibe tasks atribuídas ao usuário cross-workspace, com filtros: hoje, amanhã, esta semana, atrasadas e intervalo personalizado.
+3. As tasks são ordenadas por `due_date` crescente; tasks sem prazo aparecem ao final.
+4. O feed de notificações exibe as notificações mais recentes (máximo 5), com link para a página de notificações completa.
+5. O dashboard é a página padrão após o login (`/empresa/:companyId/inicio`).
+
+---
+
+## Módulo: Kanban (Avançado)
+
+### RF054 — Board Filter do Kanban `● Média`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Projeto |
+| **Ator** | Membros do Projeto |
+| **Descrição** | Os membros devem poder filtrar os cards do quadro Kanban globalmente por assignee, labels e reporter. |
+
+**Regras de Negócio:**
+1. O filtro é global — aplicado a todas as colunas do Kanban simultaneamente.
+2. Filtros disponíveis: assignee (múltiplos), labels (múltiplas) e reporter (múltiplos).
+3. Cada eixo de filtro possui uma seção dedicada no painel lateral de filtros.
+4. Filtros ativos são exibidos como chips abaixo do header do quadro, com botão de limpeza individual e "Limpar todos".
+5. O estado do filtro é mantido na sessão do usuário mas não persiste entre navegações.
+
+---
+
+### RF055 — Ordenação Multi-Critério nas Colunas `● Baixa`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Projeto |
+| **Ator** | Membros do Projeto |
+| **Descrição** | Os membros devem poder ordenar os cards de cada coluna por critérios independentes, sem alterar a ordem persistida no banco. |
+
+**Regras de Negócio:**
+1. Critérios de ordenação disponíveis: data de vencimento (`dueDate`) e prioridade (`priority`).
+2. Cada eixo é independente — o usuário pode ativar, combinar ou desativar cada critério.
+3. A ordenação é visual (client-side) e não altera o campo `order` no banco.
+4. Ao desativar todos os critérios, os cards retornam à ordem original persistida.
+
+---
+
+## Módulo: Sidebar
+
+### RF056 — Ordenação da Sidebar por Drag-and-Drop `● Baixa`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Sidebar |
+| **Ator** | Todos os usuários autenticados |
+| **Descrição** | O usuário deve poder reordenar workspaces e projetos na sidebar por drag-and-drop, com a posição persistida individualmente por usuário. |
+
+**Regras de Negócio:**
+1. Workspaces podem ser reordenados dentro da empresa; a posição é salva em `user_workspace_orders`.
+2. Projetos podem ser reordenados dentro de um workspace; a posição é salva em `user_project_orders`.
+3. A ordenação é individual — cada usuário tem sua própria ordem; não afeta outros usuários.
+4. Ao carregar a sidebar, o sistema consulta `GET /me/sidebar-order/:companyId` e aplica as posições salvas.
+5. Ao reordenar, o sistema chama `PUT /me/workspace-order` ou `PUT /me/project-order` para persistir.
+
+---
+
+### RF057 — Mover Projeto entre Workspaces `● Baixa`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Projeto |
+| **Ator** | Admin de Workspace |
+| **Descrição** | O admin deve poder mover um projeto para outro workspace da mesma empresa via drag-and-drop na sidebar ou via ação no menu do projeto. |
+
+**Regras de Negócio:**
+1. O usuário deve ser `workspace_admin` no workspace de origem para mover o projeto.
+2. O workspace de destino deve pertencer à mesma empresa que o workspace de origem.
+3. O workspace de destino não pode ser o mesmo que o de origem.
+4. Após a movimentação, o campo `workspace_id` do projeto é atualizado e todas as tasks, colunas e labels permanecem intactas.
+5. A operação é realizada via `PATCH /workspace/:id/projetos/:projectId/mover` com `{ targetWorkspaceId }`.
+6. A sidebar atualiza automaticamente a posição do projeto após a movimentação.
+
+---
+
+## Módulo: Notificações
+
+### RF058 — Sistema de Notificações `● Média`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Notificações |
+| **Ator** | Todos os usuários autenticados |
+| **Descrição** | O sistema deve notificar os usuários sobre eventos relevantes em tempo real, com suporte a preferências por tipo de notificação. |
+
+**Regras de Negócio:**
+1. Tipos de notificação: `ADMIN_BROADCAST`, `MENTION`, `TASK_ASSIGNED`, `TASK_COMMENT`, `TASK_UPDATED`.
+2. Notificações são entregues via WebSocket (Socket.IO) em tempo real enquanto o usuário está conectado.
+3. Notificações persistem na tabela `notifications` e ficam acessíveis via `GET /me/notificacoes`.
+4. O usuário pode marcar notificações como lidas individualmente (`PATCH /me/notificacoes/:id/read`) ou em massa (`PATCH /me/notificacoes/read-all`).
+5. O usuário pode remover notificações individualmente ou limpar todas (`DELETE /me/notificacoes`).
+6. O usuário pode configurar quais tipos de notificação deseja receber via `PATCH /me/notificacoes/preferencias`; as preferências são persistidas em `notification_preferences`.
+7. O badge de notificações no header exibe a contagem de não lidas (`GET /me/notificacoes/unread-count`).
+
+---
+
+### RF059 — Broadcast de Comunicados `● Baixa`
+
+| Campo | Detalhe |
+|---|---|
+| **Módulo** | Notificações |
+| **Ator** | Superusuário, Admin de Empresa |
+| **Descrição** | O superusuário e os admins de empresa devem poder enviar comunicados (broadcasts) para grupos de usuários. |
+
+**Regras de Negócio:**
+1. O superusuário pode enviar um comunicado global para todos os usuários ativos da plataforma via `POST /superadmin/broadcast`.
+2. O admin de empresa pode enviar um comunicado para os membros dos workspaces de sua empresa via `POST /empresa/:companyId/comunicado`.
+3. O comunicado é entregue como notificação do tipo `ADMIN_BROADCAST` para cada destinatário.
+4. O conteúdo do comunicado inclui título e corpo da mensagem.
+5. O broadcast respeita as preferências de notificação — usuários que desativaram `admin_broadcast` não recebem a notificação.
